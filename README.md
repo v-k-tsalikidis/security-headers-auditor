@@ -1,5 +1,9 @@
 # Security Headers Auditor
 
+[![CI](https://github.com/v-k-tsalikidis/security-headers-auditor/actions/workflows/ci.yml/badge.svg)](https://github.com/v-k-tsalikidis/security-headers-auditor/actions/workflows/ci.yml)
+[![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
+[![Python](https://img.shields.io/badge/python-3.10%2B-3776AB.svg)](pyproject.toml)
+
 Risk-aware, public-safe Python CLI for reviewing common HTTP security headers and producing readable Markdown or JSON reports.
 
 This project is part of my cybersecurity portfolio. It connects practical web security hygiene, lightweight assessment logic, and clear reporting: what was checked, why it matters, which signals are missing or weak, and what should be reviewed next.
@@ -87,6 +91,7 @@ PYTHONPATH=src python3 -m unittest discover -s tests
 
 - [Differentiation brief](docs/DIFFERENTIATION_BRIEF.md)
 - [Methodology](docs/METHODOLOGY.md)
+- [Release notes](docs/releases/v0.2.0.md)
 - [Disclaimer](DISCLAIMER.md)
 
 ## Public Safety

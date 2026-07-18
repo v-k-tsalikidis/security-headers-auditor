@@ -8,11 +8,13 @@ version = "0.1.0"
 description = "Small read-only HTTP security headers auditor with Markdown and JSON reports."
 readme = "README.md"
 requires-python = ">=3.10"
+license = { text = "Apache-2.0" }
 authors = [
   { name = "Vasileios Tsalikidis" }
 ]
 classifiers = [
   "Programming Language :: Python :: 3",
+  "License :: OSI Approved :: Apache Software License",
   "Topic :: Security",
   "Topic :: Internet :: WWW/HTTP",
   "Intended Audience :: Information Technology",
@@ -20,4 +22,3 @@ classifiers = [
 
 [project.scripts]
 security-headers-auditor = "security_headers_auditor.cli:main"
-
