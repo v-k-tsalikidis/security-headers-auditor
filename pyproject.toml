@@ -1,0 +1,23 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "security-headers-auditor"
+version = "0.1.0"
+description = "Small read-only HTTP security headers auditor with Markdown and JSON reports."
+readme = "README.md"
+requires-python = ">=3.10"
+authors = [
+  { name = "Vasileios Tsalikidis" }
+]
+classifiers = [
+  "Programming Language :: Python :: 3",
+  "Topic :: Security",
+  "Topic :: Internet :: WWW/HTTP",
+  "Intended Audience :: Information Technology",
+]
+
+[project.scripts]
+security-headers-auditor = "security_headers_auditor.cli:main"
+
