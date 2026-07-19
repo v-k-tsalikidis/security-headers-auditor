@@ -19,6 +19,8 @@ ROUTE_COMPARISON_ARTIFACT = "security-headers-auditor.route-comparison"
 ROUTE_BASELINE_SCHEMA_VERSION = "1.0"
 ROUTE_BASELINE_ARTIFACT = "security-headers-auditor.route-assurance-baseline"
 ROUTE_ASSURANCE_ARTIFACT = "security-headers-auditor.route-assurance"
+ROUTE_ASSURANCE_REVIEW_SCHEMA_VERSION = "1.0"
+ROUTE_ASSURANCE_REVIEW_ARTIFACT = "security-headers-auditor.route-assurance-review"
 MAX_ROUTE_COUNT = 25
 _BASELINE_STATUSES = {
     "pass",
@@ -528,6 +530,64 @@ def route_assurance_dict(run: RouteAssuranceRun) -> dict[str, Any]:
 
 def render_route_assurance_json(run: RouteAssuranceRun) -> str:
     return json.dumps(route_assurance_dict(run), indent=2, sort_keys=True) + "\n"
+
+
+def route_assurance_review_dict(run: RouteAssuranceRun) -> dict[str, Any]:
+    """Return a data-minimized route-assurance artifact for offline review.
+
+    Route paths and origins remain in the separately validated scope artifact.
+    This output intentionally carries no raw header data, URLs, or diagnostic
+    prose, so it can be bound to that scope in a portable evidence capsule.
+    """
+    return {
+        "schema_version": ROUTE_ASSURANCE_REVIEW_SCHEMA_VERSION,
+        "artifact": ROUTE_ASSURANCE_REVIEW_ARTIFACT,
+        "methodology_version": METHODOLOGY_VERSION,
+        "mapping_set_version": MAPPING_SET_VERSION,
+        "manifest_name": run.comparison.config.name,
+        "manifest_schema_version": run.comparison.config.schema_version,
+        "baseline_schema_version": run.baseline_schema_version,
+        "outcome": run.outcome,
+        "exit_code": run.exit_code,
+        "routes": [
+            {
+                "route_id": assessment.route.id,
+                "selected_profile": assessment.result.selected_profile,
+                "score": None if assessment.result.error else assessment.result.score,
+                "scored_controls": [
+                    {
+                        "key": finding.key,
+                        "status": finding.status,
+                        "severity": finding.severity,
+                        "points": finding.points,
+                        "max_points": finding.max_points,
+                    }
+                    for finding in sorted(assessment.result.findings, key=lambda item: item.key)
+                    if finding.category == "scored"
+                ],
+            }
+            for assessment in sorted(run.comparison.assessments, key=lambda item: item.route.id)
+        ],
+        "regressions": [
+            {
+                "route_id": item.route_id,
+                "code": item.code,
+                "severity": item.severity,
+                "control_key": item.control_key,
+            }
+            for item in run.regressions
+        ],
+        "operational_error_count": len(run.comparison.operational_errors),
+        "control_variance_count": len(run.comparison.variances),
+        "limitations": [
+            "This compact review artifact omits route URLs, raw response-header values, response metadata, and diagnostic prose.",
+            "It records explicit route-manifest evaluation state for review; it is not a security pass, compliance decision, vulnerability finding, or browser runtime validation.",
+        ],
+    }
+
+
+def render_route_assurance_review_json(run: RouteAssuranceRun) -> str:
+    return json.dumps(route_assurance_review_dict(run), indent=2, sort_keys=True) + "\n"
 
 
 def render_route_comparison_markdown(run: RouteComparisonRun) -> str:

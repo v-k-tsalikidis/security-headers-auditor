@@ -15,7 +15,17 @@ from .assurance import (
     write_baseline,
 )
 from .auditor import audit_headers
-from .ci_report import render_assurance_json, render_junit, render_sarif
+from .ci_report import (
+    render_assurance_json,
+    render_assurance_review_json,
+    render_junit,
+    render_sarif,
+)
+from .evidence_capsule import (
+    EvidenceCapsuleError,
+    create_evidence_capsule,
+    verify_evidence_capsule,
+)
 from .profile_export import render_profile_definition_export
 from .report import render_html, render_json, render_markdown
 from .route_comparison import (
@@ -25,6 +35,7 @@ from .route_comparison import (
     load_route_comparison,
     render_route_assurance_json,
     render_route_assurance_markdown,
+    render_route_assurance_review_json,
     run_route_assurance,
     write_route_baseline,
 )
@@ -42,7 +53,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument(
         "--format",
-        choices=("markdown", "json", "html", "sarif", "junit"),
+        choices=("markdown", "json", "review-json", "html", "sarif", "junit"),
         default="markdown",
         help="Report output format.",
     )
@@ -102,6 +113,48 @@ def build_parser() -> argparse.ArgumentParser:
             "Write a new route-baseline candidate from a complete route-comparison run. "
             "Review it before using it with --route-baseline."
         ),
+    )
+    parser.add_argument(
+        "--create-evidence-capsule",
+        type=Path,
+        metavar="PATH",
+        help=(
+            "Create one deterministic, offline-verifiable review capsule from an "
+            "existing compact review assessment. It never audits a target."
+        ),
+    )
+    parser.add_argument(
+        "--verify-evidence-capsule",
+        type=Path,
+        metavar="PATH",
+        help=(
+            "Verify one evidence capsule in place without extraction, target requests, "
+            "or network access."
+        ),
+    )
+    parser.add_argument(
+        "--capsule-policy",
+        type=Path,
+        metavar="PATH",
+        help="Policy scope to bind into --create-evidence-capsule.",
+    )
+    parser.add_argument(
+        "--capsule-route-comparison",
+        type=Path,
+        metavar="PATH",
+        help="Route-comparison scope to bind into --create-evidence-capsule.",
+    )
+    parser.add_argument(
+        "--capsule-assessment",
+        type=Path,
+        metavar="PATH",
+        help="Compact --format review-json assessment to bind into an evidence capsule.",
+    )
+    parser.add_argument(
+        "--capsule-baseline",
+        type=Path,
+        metavar="PATH",
+        help="Optional approved baseline to bind into --create-evidence-capsule.",
     )
     parser.add_argument(
         "--profile",
@@ -196,6 +249,23 @@ def main(argv: list[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(resolved_argv)
 
+    if args.create_evidence_capsule or args.verify_evidence_capsule:
+        _validate_evidence_capsule_mode(parser, args, resolved_argv)
+        return _run_evidence_capsule_mode(args)
+
+    if any(
+        (
+            args.capsule_policy,
+            args.capsule_route_comparison,
+            args.capsule_assessment,
+            args.capsule_baseline,
+        )
+    ):
+        parser.error(
+            "--capsule-policy, --capsule-route-comparison, --capsule-assessment, and "
+            "--capsule-baseline require --create-evidence-capsule."
+        )
+
     if args.export_profile_definitions:
         _validate_profile_export_mode(parser, args, resolved_argv)
         _write_output(args.export_profile_definitions, render_profile_definition_export())
@@ -215,7 +285,7 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.baseline or args.write_baseline:
         parser.error("--baseline and --write-baseline require --policy.")
-    if args.format in {"sarif", "junit"}:
+    if args.format in {"sarif", "junit", "review-json"}:
         parser.error(f"--format {args.format} requires --policy.")
 
     targets = list(args.targets)
@@ -303,6 +373,12 @@ def _validate_profile_export_mode(
         "--output",
         "--timeout",
         "--route-comparison",
+        "--create-evidence-capsule",
+        "--verify-evidence-capsule",
+        "--capsule-policy",
+        "--capsule-route-comparison",
+        "--capsule-assessment",
+        "--capsule-baseline",
     }
     specified_incompatible_option = any(
         item.partition("=")[0] in incompatible_options for item in argv
@@ -330,6 +406,12 @@ def _validate_route_comparison_mode(
         "--reporting-readiness",
         "--cross-origin-isolation",
         "--timeout",
+        "--create-evidence-capsule",
+        "--verify-evidence-capsule",
+        "--capsule-policy",
+        "--capsule-route-comparison",
+        "--capsule-assessment",
+        "--capsule-baseline",
     }
     specified_incompatible_option = any(
         item.partition("=")[0] in incompatible_options for item in argv
@@ -338,8 +420,10 @@ def _validate_route_comparison_mode(
         parser.error(
             "--route-comparison cannot be combined with targets, policy, or audit options."
         )
-    if args.format not in {"markdown", "json"}:
-        parser.error("--route-comparison supports only --format markdown or json.")
+    if args.format not in {"markdown", "json", "review-json"}:
+        parser.error(
+            "--route-comparison supports only --format markdown, json, or review-json."
+        )
     if args.route_baseline and args.write_route_baseline:
         parser.error(
             "Use either --route-baseline or --write-route-baseline; review candidates before enforcement."
@@ -356,11 +440,12 @@ def _run_route_comparison_mode(args: argparse.Namespace) -> int:
     except (RouteComparisonConfigurationError, RouteBaselineCompatibilityError) as exc:
         print(f"Configuration error: {exc}", file=sys.stderr)
         return 2
-    rendered = (
-        render_route_assurance_json(run)
-        if args.format == "json"
-        else render_route_assurance_markdown(run)
-    )
+    renderers = {
+        "markdown": render_route_assurance_markdown,
+        "json": render_route_assurance_json,
+        "review-json": render_route_assurance_review_json,
+    }
+    rendered = renderers[args.format](run)
     _write_output(args.output, rendered)
     return run.exit_code
 
@@ -380,12 +465,81 @@ def _run_policy_mode(args: argparse.Namespace) -> int:
     renderers = {
         "markdown": lambda: render_markdown(results, assurance_run=run),
         "json": lambda: render_assurance_json(run),
+        "review-json": lambda: render_assurance_review_json(run),
         "html": lambda: render_html(results, assurance_run=run),
         "sarif": lambda: render_sarif(run),
         "junit": lambda: render_junit(run),
     }
     _write_output(args.output, renderers[args.format]())
     return run.exit_code
+
+
+def _validate_evidence_capsule_mode(
+    parser: argparse.ArgumentParser,
+    args: argparse.Namespace,
+    argv: list[str],
+) -> None:
+    capsule_options = {
+        "--create-evidence-capsule",
+        "--verify-evidence-capsule",
+        "--capsule-policy",
+        "--capsule-route-comparison",
+        "--capsule-assessment",
+        "--capsule-baseline",
+    }
+    specified_options = {item.partition("=")[0] for item in argv if item.startswith("--")}
+    if args.targets or specified_options - capsule_options:
+        parser.error(
+            "Evidence-capsule modes cannot be combined with audit, policy, route, report, or output options."
+        )
+    if args.create_evidence_capsule and args.verify_evidence_capsule:
+        parser.error("Use either --create-evidence-capsule or --verify-evidence-capsule.")
+    if args.verify_evidence_capsule:
+        if any(
+            (
+                args.capsule_policy,
+                args.capsule_route_comparison,
+                args.capsule_assessment,
+                args.capsule_baseline,
+            )
+        ):
+            parser.error("--verify-evidence-capsule accepts only the capsule path.")
+        return
+    if (args.capsule_policy is None) == (args.capsule_route_comparison is None):
+        parser.error(
+            "--create-evidence-capsule requires exactly one of --capsule-policy or "
+            "--capsule-route-comparison."
+        )
+    if args.capsule_assessment is None:
+        parser.error("--create-evidence-capsule requires --capsule-assessment.")
+
+
+def _run_evidence_capsule_mode(args: argparse.Namespace) -> int:
+    try:
+        if args.verify_evidence_capsule:
+            verified = verify_evidence_capsule(args.verify_evidence_capsule)
+            print(
+                "Evidence capsule verified: "
+                f"{verified.scope_kind} {verified.scope_name!r}; "
+                f"outcome={verified.outcome}; sha256={verified.sha256}"
+            )
+            return 0
+        verified = create_evidence_capsule(
+            args.create_evidence_capsule,
+            policy_path=args.capsule_policy,
+            route_comparison_path=args.capsule_route_comparison,
+            assessment_path=args.capsule_assessment,
+            baseline_path=args.capsule_baseline,
+        )
+    except EvidenceCapsuleError as exc:
+        print(f"Configuration error: {exc}", file=sys.stderr)
+        return 2
+    print(
+        "Evidence capsule created and verified: "
+        f"{verified.scope_kind} {verified.scope_name!r}; "
+        f"outcome={verified.outcome}; sha256={verified.sha256}"
+    )
+    return 0
 
 
 def _write_output(path: Path | None, rendered: str) -> None:

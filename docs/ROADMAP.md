@@ -125,8 +125,12 @@ as well as actual drift.
 
 ## v0.8 — Portable Review Evidence Capsule
 
-**Priority:** Conditional; start only after v0.7 has passed its release gate
-and a real review workflow shows that its outputs reduce manual comparison.
+**Status:** In implementation after v0.7's verified release; v0.8 remains a
+release candidate until its own evidence gate is complete.
+
+The product owner authorized this next bounded workflow after v0.7's stable
+delivery verification. Its release still requires evidence that it improves
+review traceability without becoming a generic report archive.
 
 ### Real problem
 
@@ -161,7 +165,7 @@ offline-verifiable SHA-256 manifest.
 ### Entry criteria
 
 - v0.7 is stable and its compact artifacts have been exercised in a controlled
-  CI or review workflow;
+  CI or review workflow (met by the verified v0.7 delivery flow);
 - a threat model and schema design demonstrate bounded input size, canonical
   serialization, path-traversal resistance, safe extraction/verification, and
   privacy-preserving defaults;

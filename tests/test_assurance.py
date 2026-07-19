@@ -237,8 +237,8 @@ class CrossOriginIsolationTests(unittest.TestCase):
 
 
 class PolicyContractTests(unittest.TestCase):
-    def test_v0_7_tool_exposes_v0_5_methodology_contract(self):
-        self.assertEqual(__version__, "0.7.0")
+    def test_v0_8_tool_exposes_v0_5_methodology_contract(self):
+        self.assertEqual(__version__, "0.8.0")
         self.assertEqual(METHODOLOGY_VERSION, "0.5.0")
         policy = parse_policy(policy_payload())
         run = run_assurance(

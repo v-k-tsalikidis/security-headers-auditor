@@ -14,10 +14,78 @@ from .assurance import (
 
 
 SARIF_VERSION = "2.1.0"
+ASSURANCE_REVIEW_SCHEMA_VERSION = "1.0"
+ASSURANCE_REVIEW_ARTIFACT = "security-headers-auditor.assurance-review"
 
 
 def render_assurance_json(run: AssuranceRun) -> str:
     return json.dumps(assurance_run_dict(run), indent=2, sort_keys=True) + "\n"
+
+
+def assurance_review_dict(run: AssuranceRun) -> dict[str, object]:
+    """Return compact assurance evidence that is safe to place in a review capsule.
+
+    This deliberately differs from the regular JSON report: it carries only the
+    target identifiers, scored control state, and machine-readable diagnostics.
+    It excludes URLs, response metadata, header values, and diagnostic prose.
+    """
+    return {
+        "schema_version": ASSURANCE_REVIEW_SCHEMA_VERSION,
+        "artifact": ASSURANCE_REVIEW_ARTIFACT,
+        "methodology_version": run.methodology_version,
+        "mapping_set_version": run.mapping_set_version,
+        "policy_name": run.policy_name,
+        "policy_schema_version": run.policy_schema_version,
+        "baseline_schema_version": run.baseline_schema_version,
+        "outcome": run.outcome,
+        "exit_code": run.exit_code,
+        "assessments": [
+            {
+                "target_id": assessment.target_id,
+                "selected_profile": assessment.result.selected_profile,
+                "score": None if assessment.result.error else assessment.result.score,
+                "scored_controls": [
+                    {
+                        "key": finding.key,
+                        "status": finding.status,
+                        "severity": finding.severity,
+                        "points": finding.points,
+                        "max_points": finding.max_points,
+                    }
+                    for finding in sorted(assessment.result.findings, key=lambda item: item.key)
+                    if finding.category == "scored"
+                ],
+            }
+            for assessment in sorted(run.assessments, key=lambda item: item.target_id)
+        ],
+        "policy_violations": [
+            {
+                "target_id": item.target_id,
+                "code": item.code,
+                "severity": item.severity,
+                "control_key": item.control_key,
+            }
+            for item in run.policy_violations
+        ],
+        "regressions": [
+            {
+                "target_id": item.target_id,
+                "code": item.code,
+                "severity": item.severity,
+                "control_key": item.control_key,
+            }
+            for item in run.regressions
+        ],
+        "operational_error_count": len(run.operational_errors),
+        "limitations": [
+            "This compact review artifact omits target URLs, raw response-header values, response metadata, and diagnostic prose.",
+            "It records policy evaluation state for review; it is not a security pass, compliance decision, vulnerability finding, or browser runtime validation.",
+        ],
+    }
+
+
+def render_assurance_review_json(run: AssuranceRun) -> str:
+    return json.dumps(assurance_review_dict(run), indent=2, sort_keys=True) + "\n"
 
 
 def render_sarif(run: AssuranceRun) -> str:

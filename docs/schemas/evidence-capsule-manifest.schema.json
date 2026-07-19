@@ -1,0 +1,38 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/v-k-tsalikidis/security-headers-auditor/blob/main/docs/schemas/evidence-capsule-manifest.schema.json",
+  "title": "Security Headers Auditor Evidence Capsule Manifest",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "artifact", "entries", "limitations"],
+  "properties": {
+    "schema_version": {"const": "1.0"},
+    "artifact": {"const": "security-headers-auditor.evidence-capsule"},
+    "entries": {
+      "type": "array",
+      "minItems": 3,
+      "maxItems": 4,
+      "items": {"$ref": "#/$defs/entry"}
+    },
+    "limitations": {
+      "type": "array",
+      "minItems": 2,
+      "maxItems": 2,
+      "items": {"type": "string", "minLength": 1}
+    }
+  },
+  "$defs": {
+    "entry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "bytes", "sha256"],
+      "properties": {
+        "path": {
+          "enum": ["assessment.json", "baseline.json", "profile-definitions.json", "scope.json"]
+        },
+        "bytes": {"type": "integer", "minimum": 1, "maximum": 524288},
+        "sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"}
+      }
+    }
+  }
+}

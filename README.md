@@ -279,6 +279,34 @@ JUnit output is available with `--format junit`. Exit codes are stable:
 A baseline is an explicitly approved configuration state, not a waiver. Methodology
 or evidence-mapping version changes require review and a new baseline.
 
+## Offline Review Evidence Capsule
+
+For a controlled review, first produce the deliberately data-minimized
+`review-json` result from the exact assurance run and baseline, then package it
+without triggering another assessment:
+
+```bash
+security-headers-auditor --policy audit-policy.json \
+  --baseline assurance-baseline.json \
+  --format review-json --output reports/assurance-review.json
+
+security-headers-auditor --create-evidence-capsule reports/review.shac \
+  --capsule-policy audit-policy.json \
+  --capsule-assessment reports/assurance-review.json \
+  --capsule-baseline assurance-baseline.json
+
+security-headers-auditor --verify-evidence-capsule reports/review.shac
+```
+
+The capsule is deterministic and verified in place; it is never extracted and
+does not make a target or third-party network request. It retains the explicit
+review scope because that is necessary to bind an outcome, but excludes raw
+response-header values, URLs from the compact assessment, response metadata,
+diagnostic prose, credentials, query strings, and fragments. It supplies
+integrity evidence only when the reviewer compares its printed SHA-256 with a
+trusted expected digest; it does not authenticate an author or establish that a
+target is secure. See the [v0.8 capsule specification](docs/V0.8_METHODOLOGY_SPECIFICATION.md).
+
 ## Output Model
 
 Every successful result contains:
@@ -310,6 +338,7 @@ The implementation is governed by:
 - [v0.5 Workspace Methodology Specification](docs/V0.5_METHODOLOGY_SPECIFICATION.md)
 - [v0.6 Methodology and Delivery Specification](docs/V0.6_METHODOLOGY_SPECIFICATION.md)
 - [v0.7 Controlled Route Assurance Specification](docs/V0.7_METHODOLOGY_SPECIFICATION.md)
+- [v0.8 Portable Review Evidence Capsule Specification](docs/V0.8_METHODOLOGY_SPECIFICATION.md)
 - [v0.5 Workspace Tutorial](docs/V0.5_WORKSPACE_TUTORIAL.md)
 - [Continuous Assurance Guide](docs/CONTINUOUS_ASSURANCE.md)
 - [v0.3 Methodology Specification](docs/V0.3_METHODOLOGY_SPECIFICATION.md)
@@ -342,6 +371,8 @@ override, redirect boundaries, redaction, escaping, and offline report constrain
 - [v0.6.1 release notes](docs/releases/v0.6.1.md)
 - [v0.7 release gate](docs/RELEASE_GATE_V0.7.md)
 - [v0.7 release notes](docs/releases/v0.7.0.md)
+- [v0.8 release gate](docs/RELEASE_GATE_V0.8.md)
+- [v0.8 release notes](docs/releases/v0.8.0.md)
 - [v0.6.0 release gate](docs/RELEASE_GATE_V0.6.md)
 - [v0.6.0 release notes](docs/releases/v0.6.0.md)
 - [v0.4.0 release gate](docs/RELEASE_GATE_V0.4.md)
@@ -375,8 +406,8 @@ See [DISCLAIMER.md](DISCLAIMER.md).
 - [x] Add CSP parsing depth without claiming full browser-policy validation.
 - [x] v0.7: verified release of data-minimized route baselines for controlled
   route-level drift assurance.
-- [ ] v0.8 (conditional): add an offline-verifiable portable review-evidence
-  capsule only after v0.7 proves useful in a real review workflow.
+- [ ] v0.8: release candidate adds an offline-verifiable portable review-evidence
+  capsule; publication remains gated on complete reproducible evidence.
 
 The detailed post-v0.6.1 scope, safety boundaries, and release gates are in the
 [product roadmap](docs/ROADMAP.md).
