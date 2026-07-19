@@ -336,3 +336,10 @@ See [DISCLAIMER.md](DISCLAIMER.md).
 - [x] Add optional machine-readable profile-definition export.
 - [x] Add controlled multi-response assessment for route-level profile comparison.
 - [x] Add CSP parsing depth without claiming full browser-policy validation.
+- [ ] v0.7: add approved, data-minimized route baselines for controlled
+  route-level drift assurance.
+- [ ] v0.8 (conditional): add an offline-verifiable portable review-evidence
+  capsule only after v0.7 proves useful in a real review workflow.
+
+The detailed post-v0.6.1 scope, safety boundaries, and release gates are in the
+[product roadmap](docs/ROADMAP.md).
