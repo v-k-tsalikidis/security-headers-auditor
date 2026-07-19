@@ -16,7 +16,7 @@ No release is considered complete until every applicable gate has recorded evide
 | Mobile browser QA | Reflow, text fit, controls, and horizontal overflow inspection | Verified |
 | Accessibility review | Semantic structure, native controls, focus styling, non-color status, contrast, reduced motion | Verified within documented limits |
 | Documentation | README, privacy/authorization, methodology, release notes aligned | Verified |
-| Repository state | Intended diff reviewed and release commit identified | Pending |
+| Repository state | Intended diff reviewed; implementation commit `e728f30` pushed to `main` | Verified |
 
 ## Local Automated Evidence
 
