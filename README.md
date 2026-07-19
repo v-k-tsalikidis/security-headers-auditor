@@ -7,6 +7,10 @@
 Context-aware, read-only Python CLI for reviewing HTTP security headers as an
 authenticated web application, API response, or public brochure site.
 
+> **Authorized use:** Run this local, low-impact tool only on systems you own,
+> administer, or are explicitly authorized to assess. It does not crawl,
+> authenticate, fuzz, exploit, brute-force, or bypass access controls.
+
 Security Headers Auditor avoids the universal checklist model. It records why a
 response profile was selected, scores only controls applicable to that profile,
 identifies weak values, and preserves a versioned evidence trail to standards and
