@@ -1,0 +1,4 @@
+interface:
+  display_name: "Security Headers Auditor"
+  short_description: "Build a safe, evidence-led HTTP header assurance product."
+  default_prompt: "Continue the Security Headers Auditor safely from its documented baseline."
