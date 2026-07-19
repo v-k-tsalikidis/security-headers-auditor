@@ -29,8 +29,8 @@ advice.
   (`attrs`, `jsonschema-specifications`, `referencing`, `rpds-py`) declares
   MIT licenses. It is not a shipped runtime dependency.
 - A temporary isolated `pip-audit` review found no known vulnerabilities after
-  installing `pip==26.1.2`, `setuptools==83.0.0`, `build==1.5.0`, and the
-  exact reviewed `jsonschema==4.26.0` closure.
+  installing `pip==26.1.2`, `setuptools==83.0.0`, `build==1.5.0`,
+  `packaging==26.2`, and the exact reviewed `jsonschema==4.26.0` closure.
 
 ## Release Controls
 
