@@ -599,7 +599,7 @@ class WorkspaceServerIntegrationTests(unittest.TestCase):
         response, payload = self.request("GET", "/api/v1/bootstrap")
         self.assertEqual(response.status, 200)
         bootstrap = json.loads(payload)
-        self.assertEqual(bootstrap["tool_version"], "0.5.0")
+        self.assertEqual(bootstrap["tool_version"], "0.6.0")
         self.assertEqual(bootstrap["methodology_version"], METHODOLOGY_VERSION)
 
     def test_tokenless_and_cross_origin_api_requests_fail(self):

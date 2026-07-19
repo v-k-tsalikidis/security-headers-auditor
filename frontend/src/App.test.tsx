@@ -21,7 +21,7 @@ function record(revision = 0, baseline: BaselineCandidate | null = null): Worksp
       name: "Production Web Estate",
       policy: {
         schema_version: "1.1",
-        methodology_version: "0.4.0",
+        methodology_version: "0.5.0",
         name: "production-assurance",
         defaults: {
           fail_on_severity: ["high"],
@@ -53,8 +53,8 @@ function record(revision = 0, baseline: BaselineCandidate | null = null): Worksp
 }
 
 const bootstrap: Bootstrap = {
-  tool_version: "0.5.0",
-  methodology_version: "0.4.0",
+  tool_version: "0.6.0",
+  methodology_version: "0.5.0",
   workspace_schema_version: "1.1",
   mapping_set_version: "2026.07.2",
   allow_private_targets: false,

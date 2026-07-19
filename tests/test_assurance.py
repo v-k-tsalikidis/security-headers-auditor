@@ -8,7 +8,7 @@ from pathlib import Path
 from unittest.mock import patch
 from xml.etree.ElementTree import fromstring
 
-from jsonschema import Draft7Validator
+from jsonschema import Draft202012Validator, Draft7Validator
 
 from security_headers_auditor import METHODOLOGY_VERSION, __version__
 from security_headers_auditor.assurance import (
@@ -237,9 +237,9 @@ class CrossOriginIsolationTests(unittest.TestCase):
 
 
 class PolicyContractTests(unittest.TestCase):
-    def test_v0_5_tool_preserves_v0_4_methodology_contract(self):
-        self.assertEqual(__version__, "0.5.0")
-        self.assertEqual(METHODOLOGY_VERSION, "0.4.0")
+    def test_v0_6_tool_exposes_v0_5_methodology_contract(self):
+        self.assertEqual(__version__, "0.6.0")
+        self.assertEqual(METHODOLOGY_VERSION, "0.5.0")
         policy = parse_policy(policy_payload())
         run = run_assurance(
             policy,
@@ -251,6 +251,12 @@ class PolicyContractTests(unittest.TestCase):
     def test_continuous_policy_requires_explicit_profile_by_default(self):
         payload = policy_payload(profile="auto")
         with self.assertRaisesRegex(PolicyConfigurationError, "explicit profile"):
+            parse_policy(payload)
+
+    def test_v0_4_policy_requires_explicit_migration_to_v0_5_methodology(self):
+        payload = policy_payload()
+        payload["methodology_version"] = "0.4.0"
+        with self.assertRaisesRegex(PolicyConfigurationError, "does not match"):
             parse_policy(payload)
 
     def test_unknown_policy_fields_are_rejected(self):
@@ -461,6 +467,12 @@ class BaselineRegressionTests(unittest.TestCase):
         with self.assertRaisesRegex(BaselineCompatibilityError, "above max_points"):
             validate_baseline(invalid_points)
 
+    def test_v0_4_baseline_requires_explicit_rebaseline_for_v0_5_methodology(self):
+        legacy = dict(self.baseline)
+        legacy["methodology_version"] = "0.4.0"
+        with self.assertRaisesRegex(BaselineCompatibilityError, "new approved baseline"):
+            validate_baseline(legacy)
+
 
 class EvidenceMappingTests(unittest.TestCase):
     def test_manifest_is_versioned_and_evidence_only(self):
@@ -491,6 +503,28 @@ class EvidenceMappingTests(unittest.TestCase):
         )
         self.assertEqual(d3fend.confidence, "inferred")
         self.assertIn("inferred relationship", d3fend.limitations)
+
+
+class CurrentMethodologySchemaTests(unittest.TestCase):
+    def test_current_policy_and_baseline_examples_validate_against_committed_schemas(self):
+        root = Path(__file__).parents[1]
+        cases = (
+            (
+                root / "docs" / "schemas" / "audit-policy.schema.json",
+                root / "examples" / "ci-fixture-policy.json",
+            ),
+            (
+                root / "docs" / "schemas" / "assurance-baseline.schema.json",
+                root / "examples" / "ci-fixture-baseline.json",
+            ),
+        )
+        for schema_path, example_path in cases:
+            with self.subTest(example=example_path.name):
+                schema = json.loads(schema_path.read_text(encoding="utf-8"))
+                example = json.loads(example_path.read_text(encoding="utf-8"))
+                Draft202012Validator.check_schema(schema)
+                Draft202012Validator(schema).validate(example)
+                self.assertEqual(example["methodology_version"], METHODOLOGY_VERSION)
 
 
 class CIOutputTests(unittest.TestCase):

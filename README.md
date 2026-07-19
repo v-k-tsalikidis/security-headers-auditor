@@ -12,9 +12,10 @@ response profile was selected, scores only controls applicable to that profile,
 identifies weak values, and preserves a versioned evidence trail to standards and
 research. Version 0.5 adds an optional local workspace over the same Python
 engine; it does not create a second scanner or send targets to a hosted service.
-Continuous assurance adds policy thresholds, approved baselines, regression
-detection, and CI-native outputs without turning evidence mappings into
-certification claims.
+Version 0.6 adds offline profile definitions, bounded route comparison, and
+deeper CSP parsing. Continuous assurance adds policy thresholds, approved
+baselines, regression detection, and CI-native outputs without turning evidence
+mappings into certification claims.
 
 ## Why Context Matters
 
@@ -93,6 +94,21 @@ omits raw response-header values; use individual reports only in an authorized,
 controlled evidence store. See the
 [manifest schema](docs/schemas/route-comparison.schema.json) and
 [decision record](docs/adr/0005-controlled-route-comparison.md).
+
+## CSP Parsing Depth
+
+The CSP evaluator now retains the first duplicate directive according to CSP
+parser semantics, preserves nonce/hash token case, distinguishes valid from
+invalid nonce/hash syntax, and flags `data:` in the effective script source
+list. Multiple serialized policies and malformed tokens become review signals;
+the tool does not try to emulate the browser's complete policy intersection.
+
+This changes response-score semantics. v0.6 uses methodology `0.5.0`, so a
+v0.4 policy or baseline is deliberately rejected until it is reviewed and
+re-baselined. This is a safety boundary, not an automatic migration. CSP output
+still cannot prove nonce lifecycle, browser enforcement, document-resource
+coverage, application compatibility, or bypass resistance. See
+[ADR 0006](docs/adr/0006-csp-parser-and-methodology-version.md).
 
 ## Quick Start
 
@@ -287,6 +303,7 @@ override, redirect boundaries, redaction, escaping, and offline report constrain
 
 ## Release Discipline
 
+- [v0.6.0 release gate](docs/RELEASE_GATE_V0.6.md)
 - [v0.4.0 release gate](docs/RELEASE_GATE_V0.4.md)
 - [v0.4.0 release notes](docs/releases/v0.4.0.md)
 - [v0.5.0 release gate](docs/RELEASE_GATE_V0.5.md)
@@ -315,4 +332,4 @@ See [DISCLAIMER.md](DISCLAIMER.md).
 
 - [x] Add optional machine-readable profile-definition export.
 - [x] Add controlled multi-response assessment for route-level profile comparison.
-- Add CSP parsing depth without claiming full browser-policy validation.
+- [x] Add CSP parsing depth without claiming full browser-policy validation.

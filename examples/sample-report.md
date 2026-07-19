@@ -1,6 +1,6 @@
 # Security Headers Audit Report
 
-Methodology version: `0.4.0`
+Methodology version: `0.5.0`
 
 Evidence mapping set: `2026.07.2`
 

@@ -499,7 +499,7 @@ class ReportRegressionTests(unittest.TestCase):
 
     def test_markdown_report_records_profile_and_research(self):
         report = render_markdown([self._result("brochure")])
-        self.assertIn("Methodology version: `0.4.0`", report)
+        self.assertIn("Methodology version: `0.5.0`", report)
         self.assertIn("Evidence mapping set: `2026.07.2`", report)
         self.assertIn("### Assurance Controls", report)
         self.assertIn("### Profile Decision", report)
@@ -511,7 +511,7 @@ class ReportRegressionTests(unittest.TestCase):
 
     def test_json_report_exposes_methodology_and_profile(self):
         payload = json.loads(render_json([self._result("api")]))
-        self.assertEqual(payload["methodology_version"], "0.4.0")
+        self.assertEqual(payload["methodology_version"], "0.5.0")
         self.assertEqual(payload["mapping_set_version"], "2026.07.2")
         self.assertEqual(payload["results"][0]["selected_profile"], "api")
         self.assertEqual(payload["results"][0]["score"], 100)

@@ -26,6 +26,7 @@ from .assurance_controls import (
 )
 from .catalog import DISCLOSURE_HEADERS, RULES, HeaderRule
 from .compliance import EvidenceMapping, mappings_for_control
+from .csp import is_valid_nonce_or_hash_source, parse_csp
 from .profiles import (
     Applicability,
     ProfileDecision,
@@ -636,41 +637,67 @@ def _evaluate_csp(
     final_url: str,
 ) -> _Evaluation:
     del headers, final_url
-    directives = _parse_csp(value)
-    script_sources = directives.get("script-src", directives.get("default-src", ()))
-    if "script-src" not in directives and "default-src" not in directives:
+    policy_list = parse_csp(value)
+    if any(issue.code == "header_too_long" for issue in policy_list.all_issues):
+        return _Evaluation(
+            "warning",
+            "high",
+            "CSP header exceeded the 16 KiB parser limit; its effective policy was not assessed.",
+            0.25,
+        )
+    if not policy_list.policies:
+        return _Evaluation(
+            "warning",
+            "high",
+            "The CSP header contained no parseable directives.",
+            0.25,
+        )
+    if len(policy_list.policies) > 1:
+        return _Evaluation(
+            "warning",
+            "medium",
+            "Multiple CSP policies were observed. Browser enforcement is an intersection; "
+            "review the combined policy rather than relying on this single-policy assessment.",
+            0.75,
+        )
+
+    policy = policy_list.policies[0]
+    script_directive = policy.directive("script-src") or policy.directive("default-src")
+    if script_directive is None:
         return _Evaluation(
             "warning",
             "high",
             "The policy does not define script-src or a default-src fallback.",
             0.25,
         )
+    script_sources = script_directive.values
+    normalized_sources = {source.lower() for source in script_sources}
 
-    weak_script_sources = {"*", "'unsafe-eval'"}
-    if any(source in weak_script_sources for source in script_sources):
+    weak_script_sources = {"*", "'unsafe-eval'", "data:"}
+    observed_weak_sources = sorted(normalized_sources & weak_script_sources)
+    if observed_weak_sources:
         return _Evaluation(
             "warning",
             "high",
-            "The effective script policy contains a wildcard or unsafe-eval.",
+            "The effective script policy contains high-risk source expression(s): "
+            + ", ".join(observed_weak_sources)
+            + ".",
             0.25,
         )
 
-    has_nonce_or_hash = any(
-        source.startswith("'nonce-") or source.startswith("'sha")
-        for source in script_sources
-    )
-    if "'unsafe-inline'" in script_sources and not has_nonce_or_hash:
+    has_nonce_or_hash = any(is_valid_nonce_or_hash_source(source) for source in script_sources)
+    if "'unsafe-inline'" in normalized_sources and not has_nonce_or_hash:
         return _Evaluation(
             "warning",
             "high",
-            "The effective script policy allows unsafe-inline without a nonce or hash.",
+            "The effective script policy allows unsafe-inline without a valid nonce or hash source.",
             0.4,
         )
 
     missing = [
         directive
         for directive in ("object-src", "base-uri")
-        if directive not in directives
+        if not policy.has_directive(directive)
     ]
     if missing:
         return _Evaluation(
@@ -679,7 +706,48 @@ def _evaluate_csp(
             "Policy is present but missing defence-in-depth directives: " + ", ".join(missing) + ".",
             0.75,
         )
-    return _Evaluation("pass", "info", "No high-risk script source pattern was detected.", 1.0)
+
+    duplicate_names = sorted(
+        {
+            issue.directive_name
+            for issue in policy.issues
+            if issue.code == "duplicate_directive_ignored" and issue.directive_name
+        }
+    )
+    if duplicate_names:
+        return _Evaluation(
+            "warning",
+            "medium",
+            "Later duplicate CSP directive(s) were ignored by parser semantics: "
+            + ", ".join(duplicate_names)
+            + ". Review the effective first directive.",
+            0.75,
+        )
+
+    if policy.issues:
+        return _Evaluation(
+            "warning",
+            "medium",
+            "CSP contained non-ASCII, control-character, or invalid directive tokens that were ignored. "
+            "Review the serialized policy.",
+            0.75,
+        )
+
+    if "'unsafe-inline'" in normalized_sources:
+        return _Evaluation(
+            "pass",
+            "info",
+            "unsafe-inline is present, but a valid nonce or hash source prevents it from "
+            "allowing all inline scripts in CSP Level 3 semantics. Verify nonce/hash lifecycle "
+            "and browser compatibility separately.",
+            1.0,
+        )
+    return _Evaluation(
+        "pass",
+        "info",
+        "No selected high-risk script source pattern was detected in one parsed CSP policy.",
+        1.0,
+    )
 
 
 def _evaluate_x_content_type_options(
@@ -876,19 +944,10 @@ def _parse_max_age(value: str) -> int | None:
     return None
 
 
-def _parse_csp(value: str) -> dict[str, tuple[str, ...]]:
-    directives: dict[str, tuple[str, ...]] = {}
-    for raw_directive in value.split(";"):
-        parts = raw_directive.strip().lower().split()
-        if not parts:
-            continue
-        directives[parts[0]] = tuple(parts[1:])
-    return directives
-
-
 def _has_frame_ancestors(headers: Mapping[str, str]) -> bool:
-    csp = _parse_csp(headers.get("content-security-policy", ""))
-    return "frame-ancestors" in csp
+    return parse_csp(headers.get("content-security-policy", "")).has_directive(
+        "frame-ancestors"
+    )
 
 
 def _weighted_score(findings: list[HeaderFinding]) -> int:

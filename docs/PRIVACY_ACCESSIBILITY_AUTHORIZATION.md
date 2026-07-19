@@ -92,6 +92,9 @@ is therefore not claimed.
 
 ## Known Limits
 
+- A CSP parser can identify selected header syntax but cannot validate browser
+  enforcement, HTML `meta` policies, nonce lifecycle, complete resource graphs,
+  application compatibility, or bypass resistance.
 - A response header can be syntactically valid but incompatible with application behavior.
 - A single response cannot reveal route sensitivity or complete policy coverage.
 - The report does not inspect contrast under user-supplied browser extensions or custom styles.

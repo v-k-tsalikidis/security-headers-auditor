@@ -91,6 +91,15 @@ When a regression is intentional:
 
 Never overwrite the baseline automatically after a failed run.
 
+## Methodology Migrations
+
+Methodology versions are deliberate compatibility boundaries. Version `0.5.0`
+adds controlled CSP parser semantics that can change a CSP score, so a v0.4
+policy or baseline is rejected rather than silently reinterpreted. Copy the
+current schema-compatible policy, review the response evidence and score
+change, create a candidate baseline, then approve it through normal change
+control. Do not edit an approved baseline's version field to bypass review.
+
 ## Reporting Readiness
 
 Use `required` only when an owned reporting collector and operational workflow

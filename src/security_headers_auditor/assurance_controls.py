@@ -9,6 +9,8 @@ from enum import Enum
 from typing import Mapping
 from urllib.parse import urljoin, urlparse, urlunparse
 
+from .csp import parse_csp
+
 
 class AssuranceExpectation(str, Enum):
     OBSERVE = "observe"
@@ -154,9 +156,9 @@ def analyze_reporting_readiness(
     report_to_groups: set[str] = set()
     report_uris: set[str] = set()
     for csp_value in csp_values:
-        directives = _parse_csp(csp_value)
-        report_to_groups.update(directives.get("report-to", ()))
-        report_uris.update(directives.get("report-uri", ()))
+        parsed_csp = parse_csp(csp_value)
+        report_to_groups.update(parsed_csp.directive_values("report-to"))
+        report_uris.update(parsed_csp.directive_values("report-uri"))
 
     configured_groups = set(modern) | set(legacy)
     unlinked = sorted(report_to_groups - configured_groups)
@@ -529,15 +531,6 @@ def _split_quoted(value: str, delimiter: str) -> tuple[str, ...]:
         current.append(character)
     parts.append("".join(current).strip())
     return tuple(part for part in parts if part)
-
-
-def _parse_csp(value: str) -> dict[str, tuple[str, ...]]:
-    directives: dict[str, tuple[str, ...]] = {}
-    for raw_directive in value.split(";"):
-        parts = raw_directive.strip().split()
-        if parts:
-            directives[parts[0].lower()] = tuple(parts[1:])
-    return directives
 
 
 def _is_potentially_trustworthy(url: str) -> bool:

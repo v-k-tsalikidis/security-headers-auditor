@@ -1,6 +1,6 @@
 {
   "schema_version": "1.0",
-  "methodology_version": "0.4.0",
+  "methodology_version": "0.5.0",
   "name": "deterministic-local-ci",
   "defaults": {
     "minimum_score": 80,
