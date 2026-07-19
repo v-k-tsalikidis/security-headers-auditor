@@ -2,7 +2,7 @@
 
 ## Release Classification
 
-Current classification: **release-ready; tag and public release pending**.
+Current classification: **stable; v0.6.0 published on 2026-07-19**.
 
 This gate is evidence-driven. No v0.6.0 tag, GitHub Release, announcement, or
 claim of release completeness is permitted until every applicable item is
@@ -50,7 +50,7 @@ checked and recorded.
 ## Publication Evidence
 
 - [x] GitHub Actions supported Python/Node CI is green for the final commit.
-- [ ] Release workflow builds distributions, runs the full suite, publishes
+- [x] Release workflow builds distributions, runs the full suite, publishes
   SHA-256 checksums, and records provenance for the final tagged commit.
 - [x] Pre-tag release artifacts are independently checked against their checksums
   and provenance before GitHub Release creation.
@@ -76,9 +76,29 @@ checked and recorded.
   [Attestation #36056554](https://github.com/v-k-tsalikidis/security-headers-auditor/attestations/36056554)
   records provenance for the wheel, source archive, and checksum manifest.
 
-The remaining tag-triggered item is deliberate: create an annotated `v0.6.0`
-tag only after this gate commit itself passes CI, then verify the tag workflow's
-independent artifacts and provenance before describing the release as stable.
+The tag-triggered item was deliberately left open in the tagged source until the
+annotated `v0.6.0` tag had passed CI and its independent artifacts and
+provenance were verified. This `main`-branch record captures that post-tag
+evidence without rewriting the published tag.
+
+## Tag And Publication Evidence
+
+- Annotated tag `v0.6.0` points to `075e4b5`. GitHub [CI #26](https://github.com/v-k-tsalikidis/security-headers-auditor/actions/runs/29699075875)
+  passed for that tag.
+- Tag-triggered [Release Artifacts #5](https://github.com/v-k-tsalikidis/security-headers-auditor/actions/runs/29699075870)
+  passed: package and publish jobs both succeeded, and the workflow created the
+  public [v0.6.0 GitHub Release](https://github.com/v-k-tsalikidis/security-headers-auditor/releases/tag/v0.6.0).
+- The downloaded tag artifact matched GitHub's published artifact digest
+  `33df5f7bc2d7ee27d81526f8dae85f7205d6d438ea6929985c5e995d4f05f873`, and
+  its wheel and source archive matched the enclosed `SHA256SUMS` manifest.
+  [Attestation #36056875](https://github.com/v-k-tsalikidis/security-headers-auditor/attestations/36056875)
+  records tag-scoped provenance for the wheel, source archive, and checksum
+  manifest.
+- GitHub emitted runner notices that several immutable third-party Action pins
+  still declare a Node 20 action runtime and were forced by GitHub onto Node 24.
+  Both package and publish jobs passed, and the independently verified artifacts
+  are unaffected. Updating an immutable action pin is a separately reviewed
+  supply-chain maintenance change; it was not silently bundled into this release.
 
 Any non-applicable item requires a written rationale. Historical v0.5 evidence
 does not satisfy v0.6 release gates.
