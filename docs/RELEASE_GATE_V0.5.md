@@ -2,8 +2,7 @@
 
 ## Release Classification
 
-Current classification: **release candidate; signed-artifact workflow
-verification pending**.
+Current classification: **release-ready; public tag and GitHub release pending**.
 
 The project must not be described as v0.5 complete until every applicable gate
 below has recorded evidence.
@@ -78,9 +77,11 @@ below has recorded evidence.
 - [x] README, tutorial, screenshots, and release notes match actual behavior.
 - [x] Repository diff contains no reports, secrets, databases, caches, or
   unrelated files.
-- [ ] Manually dispatched signed-artifact workflow succeeds and its GitHub
+- [x] Manually dispatched signed-artifact workflow succeeds and its GitHub
   provenance attestation is verified before creating the public v0.5.0 tag and
-  release.
+  release: [Release Artifacts #2](https://github.com/v-k-tsalikidis/security-headers-auditor/actions/runs/29697158619)
+  passed for commit `7f3d343`; [attestation #36053776](https://github.com/v-k-tsalikidis/security-headers-auditor/attestations/36053776)
+  covers the wheel, source archive, and `SHA256SUMS`.
 
 The project may be described as v0.5 complete only when every applicable item is
 checked and evidenced. Any non-applicable item requires written rationale.

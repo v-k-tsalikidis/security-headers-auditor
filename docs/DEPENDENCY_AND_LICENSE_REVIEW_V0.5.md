@@ -39,6 +39,9 @@ advice.
 - The release workflow is configured to pin the audited Python build toolchain,
   build without isolation, verify the wheel's UI and notice files, create
   SHA-256 checksums, and produce a GitHub Sigstore/SLSA provenance attestation
-  before publication. Its manual dry run remains a release-gate requirement.
+  before publication. Manual [Release Artifacts #2](https://github.com/v-k-tsalikidis/security-headers-auditor/actions/runs/29697158619)
+  passed on 2026-07-19 after an initial runner-only missing-`packaging`
+  dependency was pinned; its [attestation #36053776](https://github.com/v-k-tsalikidis/security-headers-auditor/attestations/36053776)
+  covers the wheel, source archive, and checksum manifest.
 - A future dependency, license, lockfile, or build-tool update requires this
   review to be rerun and its release impact recorded.
