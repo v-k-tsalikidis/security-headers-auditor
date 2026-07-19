@@ -1,0 +1,22 @@
+{
+  "schema_version": "1.0",
+  "name": "authorized-portal-route-review",
+  "origin": "https://portal.example.com",
+  "routes": [
+    {
+      "id": "dashboard",
+      "path": "/dashboard",
+      "profile": "app"
+    },
+    {
+      "id": "account-settings",
+      "path": "/settings/security",
+      "profile": "app"
+    },
+    {
+      "id": "service-status",
+      "path": "/api/status",
+      "profile": "api"
+    }
+  ]
+}

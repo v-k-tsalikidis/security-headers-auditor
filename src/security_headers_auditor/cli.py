@@ -18,6 +18,13 @@ from .auditor import audit_headers
 from .ci_report import render_assurance_json, render_junit, render_sarif
 from .profile_export import render_profile_definition_export
 from .report import render_html, render_json, render_markdown
+from .route_comparison import (
+    RouteComparisonConfigurationError,
+    load_route_comparison,
+    render_route_comparison_json,
+    render_route_comparison_markdown,
+    run_route_comparison,
+)
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -64,6 +71,15 @@ def build_parser() -> argparse.ArgumentParser:
         help=(
             "Write the canonical, static profile-definition JSON to PATH without "
             "requesting any target. This cannot be combined with audit or policy inputs."
+        ),
+    )
+    parser.add_argument(
+        "--route-comparison",
+        type=Path,
+        metavar="PATH",
+        help=(
+            "Assess the explicit same-origin routes in a versioned comparison "
+            "manifest. It cannot be combined with targets, policy, or audit options."
         ),
     )
     parser.add_argument(
@@ -164,6 +180,10 @@ def main(argv: list[str] | None = None) -> int:
         _write_output(args.export_profile_definitions, render_profile_definition_export())
         return 0
 
+    if args.route_comparison:
+        _validate_route_comparison_mode(parser, args, resolved_argv)
+        return _run_route_comparison_mode(args)
+
     if args.policy:
         if args.targets or args.input_file:
             parser.error("Do not combine --policy with positional targets or --input-file.")
@@ -258,6 +278,7 @@ def _validate_profile_export_mode(
         "--cross-origin-isolation",
         "--output",
         "--timeout",
+        "--route-comparison",
     }
     specified_incompatible_option = any(
         item.partition("=")[0] in incompatible_options for item in argv
@@ -266,6 +287,52 @@ def _validate_profile_export_mode(
         parser.error(
             "--export-profile-definitions cannot be combined with audit, policy, or report options."
         )
+
+
+def _validate_route_comparison_mode(
+    parser: argparse.ArgumentParser,
+    args: argparse.Namespace,
+    argv: list[str],
+) -> None:
+    incompatible_options = {
+        "--input-file",
+        "--policy",
+        "--baseline",
+        "--write-baseline",
+        "--export-profile-definitions",
+        "--profile",
+        "--include-query",
+        "--allow-cross-origin-redirects",
+        "--reporting-readiness",
+        "--cross-origin-isolation",
+        "--timeout",
+    }
+    specified_incompatible_option = any(
+        item.partition("=")[0] in incompatible_options for item in argv
+    )
+    if args.targets or specified_incompatible_option:
+        parser.error(
+            "--route-comparison cannot be combined with targets, policy, or audit options."
+        )
+    if args.format not in {"markdown", "json"}:
+        parser.error("--route-comparison supports only --format markdown or json.")
+
+
+def _run_route_comparison_mode(args: argparse.Namespace) -> int:
+    try:
+        config = load_route_comparison(args.route_comparison)
+    except RouteComparisonConfigurationError as exc:
+        print(f"Configuration error: {exc}", file=sys.stderr)
+        return 2
+
+    run = run_route_comparison(config)
+    rendered = (
+        render_route_comparison_json(run)
+        if args.format == "json"
+        else render_route_comparison_markdown(run)
+    )
+    _write_output(args.output, rendered)
+    return run.exit_code
 
 
 def _run_policy_mode(args: argparse.Namespace) -> int:

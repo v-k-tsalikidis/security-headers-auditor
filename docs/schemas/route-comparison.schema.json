@@ -1,0 +1,31 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/v-k-tsalikidis/security-headers-auditor/blob/main/docs/schemas/route-comparison.schema.json",
+  "title": "Security Headers Auditor Controlled Route Comparison",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "name", "origin", "routes"],
+  "properties": {
+    "schema_version": { "const": "1.0" },
+    "name": { "type": "string", "minLength": 1, "maxLength": 120 },
+    "origin": { "type": "string", "minLength": 1 },
+    "routes": {
+      "type": "array",
+      "minItems": 2,
+      "maxItems": 25,
+      "items": { "$ref": "#/$defs/route" }
+    }
+  },
+  "$defs": {
+    "route": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "path", "profile"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1, "maxLength": 120 },
+        "path": { "type": "string", "minLength": 1 },
+        "profile": { "enum": ["app", "api", "brochure"] }
+      }
+    }
+  }
+}

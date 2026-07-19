@@ -71,6 +71,29 @@ diffs. Its [JSON Schema](docs/schemas/profile-definitions.schema.json) is
 versioned; it is a tool-configuration document, not a compliance attestation or
 proof of a live endpoint's security.
 
+## Controlled Route Comparison
+
+Use a route comparison when one authorized origin has several known, important
+routes and you need to see whether like-for-like response profiles have
+different scored-control states. The manifest contains exactly one origin and
+2–25 explicit, query-free paths; it never crawls, discovers routes, or follows
+cross-origin redirects.
+
+```bash
+security-headers-auditor \
+  --route-comparison examples/route-comparison.json \
+  --format json \
+  --output reports/portal-route-comparison.json
+```
+
+Each route declares `app`, `api`, or `brochure` explicitly. A difference is a
+review signal, not a vulnerability, policy failure, compliance decision, or a
+replacement for an approved continuous-assurance baseline. The compact output
+omits raw response-header values; use individual reports only in an authorized,
+controlled evidence store. See the
+[manifest schema](docs/schemas/route-comparison.schema.json) and
+[decision record](docs/adr/0005-controlled-route-comparison.md).
+
 ## Quick Start
 
 ```bash
@@ -220,6 +243,11 @@ Every successful result contains:
 - versioned evidence mappings with rationale and limitations;
 - standards and research citations.
 
+Route-comparison output instead minimizes evidence to route identifiers and
+paths, declared profile, redacted final URL, status, score, scored-control state,
+review-only variance, and operational errors. It intentionally excludes raw
+header values.
+
 The HTML report is one portable file with no JavaScript, external fonts, analytics,
 or remote style assets. It uses semantic HTML, native disclosure controls, keyboard
 focus, non-color status labels, responsive reflow, and print styles.
@@ -286,5 +314,5 @@ See [DISCLAIMER.md](DISCLAIMER.md).
 ## Roadmap
 
 - [x] Add optional machine-readable profile-definition export.
-- Add controlled multi-response assessment for route-level profile comparison.
+- [x] Add controlled multi-response assessment for route-level profile comparison.
 - Add CSP parsing depth without claiming full browser-policy validation.
