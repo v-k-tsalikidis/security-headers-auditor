@@ -340,6 +340,8 @@ override, redirect boundaries, redaction, escaping, and offline report constrain
 
 - [v0.6.1 release gate](docs/RELEASE_GATE_V0.6.1.md)
 - [v0.6.1 release notes](docs/releases/v0.6.1.md)
+- [v0.7 release gate](docs/RELEASE_GATE_V0.7.md)
+- [v0.7 release notes](docs/releases/v0.7.0.md)
 - [v0.6.0 release gate](docs/RELEASE_GATE_V0.6.md)
 - [v0.6.0 release notes](docs/releases/v0.6.0.md)
 - [v0.4.0 release gate](docs/RELEASE_GATE_V0.4.md)
@@ -371,8 +373,8 @@ See [DISCLAIMER.md](DISCLAIMER.md).
 - [x] Add optional machine-readable profile-definition export.
 - [x] Add controlled multi-response assessment for route-level profile comparison.
 - [x] Add CSP parsing depth without claiming full browser-policy validation.
-- [ ] v0.7: release approved, data-minimized route baselines for controlled
-  route-level drift assurance after its evidence gate is complete.
+- [x] v0.7: verified release of data-minimized route baselines for controlled
+  route-level drift assurance.
 - [ ] v0.8 (conditional): add an offline-verifiable portable review-evidence
   capsule only after v0.7 proves useful in a real review workflow.
 

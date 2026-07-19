@@ -1,8 +1,8 @@
 # Post-v0.6.1 Product Roadmap
 
 **Status:** Active planning document
-**Reviewed:** 2026-07-19
-**Current stable release:** v0.6.1
+**Reviewed:** 2026-07-20
+**Current stable release:** v0.7.0
 
 ## Direction
 
@@ -25,6 +25,7 @@ complete.
 | v0.5 | Local loopback workspace with protected state changes, explicit baseline approval, local persistence, and no hosted target collection. |
 | v0.6 | Deterministic profile-definition export, explicit same-origin route comparison, and bounded CSP parser improvements. |
 | v0.6.1 | Reproducible release artifacts, SHA-256 manifests, immutable CI action pins, and GitHub artifact provenance attestations. |
+| v0.7 | Approved, data-minimized route baselines for explicit route-manifest drift review, delivered through a verified tag-triggered release. |
 
 The former roadmap is therefore closed:
 
@@ -35,7 +36,11 @@ The former roadmap is therefore closed:
 
 ## v0.7 — Controlled Route Assurance
 
-**Priority:** Next release candidate.
+**Status:** Stable v0.7.0, released 2026-07-19.
+
+The implementation and its tag-triggered delivery evidence are recorded in the
+[v0.7 release gate](RELEASE_GATE_V0.7.md). The following text remains the
+accepted problem statement and safety boundary for the delivered feature.
 
 ### Real problem
 

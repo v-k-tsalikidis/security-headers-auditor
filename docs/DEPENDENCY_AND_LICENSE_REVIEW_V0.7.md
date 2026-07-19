@@ -1,7 +1,7 @@
 # v0.7 Dependency And License Revalidation
 
 **Scope:** Controlled Route Assurance
-**Status:** Release-candidate review
+**Status:** Completed for stable v0.7.0 (2026-07-19)
 
 This record is an engineering review, not legal advice. v0.7 adds only
 standard-library Python code and documentation:
