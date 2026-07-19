@@ -20,6 +20,9 @@ checked and recorded.
 - [x] Checkout, setup-Python, artifact upload, artifact download, cache, Node
   setup, and attestation actions use reviewed immutable SHA pins whose action
   metadata declares Node 24.
+- [x] The checksum manifest names the uploaded distribution files directly, so
+  it remains verifiable after GitHub uploads the `dist/*` glob as a flattened
+  artifact.
 
 ## Security, Privacy, And Claims
 
@@ -57,6 +60,8 @@ checked and recorded.
   wheel and source distribution using the pinned release toolchain. The wheel
   contained the workspace assets and license notice, contained no `.DS_Store`,
   and passed a clean `--no-index --no-deps` installation and CLI-help check.
+- The exact checksum-generation command was then rerun in a fresh clean
+  archive; the artifact-relative manifest verified both distributions directly.
 - All workflow YAML files parse successfully. The final immutable action pins
   were checked against their official action metadata: checkout v5,
   setup-python v6, setup-node v5, cache v5, upload-artifact v6,

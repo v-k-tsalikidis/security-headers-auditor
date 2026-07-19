@@ -53,8 +53,9 @@ runners; no self-hosted runner support claim is introduced.
 - `THIRD_PARTY_NOTICES.md` remains a declared wheel license file and is checked
   in the release workflow.
 - The release workflow still builds from a clean GitHub checkout, rejects
-  `.DS_Store` entries in the wheel, creates `SHA256SUMS`, and records artifact
-  provenance before a tag-triggered GitHub Release can be published.
+  `.DS_Store` entries in the wheel, creates an artifact-relative `SHA256SUMS`
+  manifest, and records artifact provenance before a tag-triggered GitHub
+  Release can be published.
 - v0.6.1 introduces no new third-party executable code, network service, or
   runtime capability in the auditor itself.
 
