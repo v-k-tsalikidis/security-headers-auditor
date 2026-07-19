@@ -2,7 +2,7 @@
 
 ## Release Classification
 
-Current classification: **in development; not published**.
+Current classification: **release-ready; tag and public release pending**.
 
 This gate is evidence-driven. No v0.6.0 tag, GitHub Release, announcement, or
 claim of release completeness is permitted until every applicable item is
@@ -41,23 +41,44 @@ checked and recorded.
 - [x] Route-comparison CLI completes against deterministic loopback fixtures.
 - [x] Audit and reporting-linkage code share first-duplicate CSP parsing behavior.
 - [x] Current policy and baseline examples validate against committed schemas.
-- [ ] Full Python suite rerun after final release documentation and packaging changes.
-- [ ] Frontend test and production build rerun after final release documentation and packaging changes.
-- [ ] Built wheel contains the v0.6 modules, compliance-evidence data, license
+- [x] Full Python suite rerun after final release documentation and packaging changes.
+- [x] Frontend test and production build rerun after final release documentation and packaging changes.
+- [x] Built wheel contains the v0.6 modules, compliance-evidence data, license
   notices, and workspace static assets; source distribution contains the release
   source and tests; clean offline installation passes.
 
 ## Publication Evidence
 
-- [ ] GitHub Actions supported Python/Node CI is green for the final commit.
+- [x] GitHub Actions supported Python/Node CI is green for the final commit.
 - [ ] Release workflow builds distributions, runs the full suite, publishes
   SHA-256 checksums, and records provenance for the final tagged commit.
-- [ ] Published artifacts are independently checked against their checksums and
-  provenance before GitHub Release creation.
-- [ ] README, methodology, ADRs, schemas, examples, release notes, and gate
+- [x] Pre-tag release artifacts are independently checked against their checksums
+  and provenance before GitHub Release creation.
+- [x] README, methodology, ADRs, schemas, examples, release notes, and gate
   match the final behavior.
-- [ ] Repository diff contains no secrets, databases, reports, caches, or
+- [x] Repository diff contains no secrets, databases, reports, caches, or
   unrelated files.
+
+## Pre-Tag Evidence
+
+- Local verification on 2026-07-19: 135 Python tests passed; 6 frontend tests,
+  type check, production build, and packaged-asset synchronization passed; the
+  deterministic CI assurance fixture produced matching candidate baseline, JSON,
+  SARIF, and JUnit outputs. A clean Git archive build passed wheel/source
+  contents, offline-install, profile-export, and `.DS_Store` checks.
+- GitHub [CI #24](https://github.com/v-k-tsalikidis/security-headers-auditor/actions/runs/29698807661)
+  passed for final pre-tag commit `a3092bd`.
+- Manually dispatched [Release Artifacts #4](https://github.com/v-k-tsalikidis/security-headers-auditor/actions/runs/29698926661)
+  passed for `a3092bd`; its publish job was skipped by design because no tag
+  existed. The downloaded artifact matched GitHub's published artifact digest
+  `d3b4a1b72bd8fea9c8211ac14cd67dea677b4bc0bd05730defbe08a6553f6523`; its
+  wheel and source archive matched the enclosed `SHA256SUMS` manifest.
+  [Attestation #36056554](https://github.com/v-k-tsalikidis/security-headers-auditor/attestations/36056554)
+  records provenance for the wheel, source archive, and checksum manifest.
+
+The remaining tag-triggered item is deliberate: create an annotated `v0.6.0`
+tag only after this gate commit itself passes CI, then verify the tag workflow's
+independent artifacts and provenance before describing the release as stable.
 
 Any non-applicable item requires a written rationale. Historical v0.5 evidence
 does not satisfy v0.6 release gates.
