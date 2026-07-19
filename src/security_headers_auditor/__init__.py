@@ -1,4 +1,4 @@
 """Security Headers Auditor package."""
 
-__version__ = "0.6.0"
+__version__ = "0.6.1"
 METHODOLOGY_VERSION = "0.5.0"

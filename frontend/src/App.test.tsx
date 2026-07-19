@@ -53,7 +53,7 @@ function record(revision = 0, baseline: BaselineCandidate | null = null): Worksp
 }
 
 const bootstrap: Bootstrap = {
-  tool_version: "0.6.0",
+  tool_version: "0.6.1",
   methodology_version: "0.5.0",
   workspace_schema_version: "1.1",
   mapping_set_version: "2026.07.2",

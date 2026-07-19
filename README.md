@@ -303,6 +303,8 @@ override, redirect boundaries, redaction, escaping, and offline report constrain
 
 ## Release Discipline
 
+- [v0.6.1 release gate](docs/RELEASE_GATE_V0.6.1.md)
+- [v0.6.1 release notes](docs/releases/v0.6.1.md)
 - [v0.6.0 release gate](docs/RELEASE_GATE_V0.6.md)
 - [v0.6.0 release notes](docs/releases/v0.6.0.md)
 - [v0.4.0 release gate](docs/RELEASE_GATE_V0.4.md)
