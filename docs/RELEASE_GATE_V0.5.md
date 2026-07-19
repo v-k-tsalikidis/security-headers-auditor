@@ -2,7 +2,7 @@
 
 ## Release Classification
 
-Current classification: **release-ready; public tag and GitHub release pending**.
+Current classification: **stable; v0.5.0 published on 2026-07-19**.
 
 The project must not be described as v0.5 complete until every applicable gate
 below has recorded evidence.
