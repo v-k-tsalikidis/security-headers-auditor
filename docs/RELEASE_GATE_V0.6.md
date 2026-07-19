@@ -31,6 +31,8 @@ checked and recorded.
   enforcement, nonce lifecycle verification, route coverage, or bypass resistance.
 - [x] Framework mappings remain supporting evidence only; no compliance,
   certification, endorsement, or effectiveness claim was added.
+- [x] Dependency and license revalidation records no new runtime, test, frontend,
+  lockfile, or build-tool dependency in v0.6.
 
 ## Functional And Regression Evidence
 
@@ -41,8 +43,9 @@ checked and recorded.
 - [x] Current policy and baseline examples validate against committed schemas.
 - [ ] Full Python suite rerun after final release documentation and packaging changes.
 - [ ] Frontend test and production build rerun after final release documentation and packaging changes.
-- [ ] Built wheel and source distribution contain new modules, schemas, docs, and
-  workspace static assets; clean offline installation passes.
+- [ ] Built wheel contains the v0.6 modules, compliance-evidence data, license
+  notices, and workspace static assets; source distribution contains the release
+  source and tests; clean offline installation passes.
 
 ## Publication Evidence
 
