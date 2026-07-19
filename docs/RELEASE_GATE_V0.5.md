@@ -71,7 +71,7 @@ below has recorded evidence.
 - [x] Keyboard, focus, semantics, contrast, zoom, and reduced-motion review
   passes within documented limits.
 - [x] Built UI is packaged in wheel and works from an offline install.
-- [ ] Dependency and license review complete.
+- [x] Dependency and license review complete.
 - [ ] GitHub Actions supported Python and Node matrix is green.
 - [ ] README, tutorial, screenshots, and release notes match actual behavior.
 - [ ] Repository diff contains no reports, secrets, databases, caches, or

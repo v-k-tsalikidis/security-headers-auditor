@@ -10,9 +10,11 @@ authenticated web application, API response, or public brochure site.
 Security Headers Auditor avoids the universal checklist model. It records why a
 response profile was selected, scores only controls applicable to that profile,
 identifies weak values, and preserves a versioned evidence trail to standards and
-research. Its continuous assurance mode adds policy thresholds, approved baselines,
-regression detection, and CI-native outputs without turning compliance mappings
-into certification claims.
+research. Version 0.5 adds an optional local workspace over the same Python
+engine; it does not create a second scanner or send targets to a hosted service.
+Continuous assurance adds policy thresholds, approved baselines, regression
+detection, and CI-native outputs without turning evidence mappings into
+certification claims.
 
 ## Why Context Matters
 
@@ -36,6 +38,8 @@ The result is a transparent engineering assessment:
 - score, profile, and control-state regression detection;
 - SARIF 2.1.0 and JUnit XML outputs for CI systems;
 - Markdown, JSON, and offline self-contained HTML reports;
+- a loopback-only workspace for authorized inventories, results, and reviewed
+  baseline approval;
 - deterministic tests with no remote-site dependency.
 
 ## Profiles
@@ -119,6 +123,32 @@ security-headers-auditor https://example.com \
   --allow-cross-origin-redirects
 ```
 
+## Local Workspace
+
+The optional workspace is a local interface to the same audit and assurance
+engine. It starts only on `127.0.0.1`, stores data locally, and has no accounts,
+telemetry, analytics, cloud synchronization, or third-party runtime assets.
+
+```bash
+security-headers-auditor workspace
+```
+
+The command opens a local browser page. Create a workspace, add only authorized
+targets with explicit response profiles, then choose **Run** or **Run assurance**.
+An import is previewed and requires explicit confirmation; importing never starts
+an assessment. Use `Ctrl+C` in the terminal to stop the local service.
+
+Private, loopback, link-local, and reserved addresses are blocked by default.
+For an explicitly authorized internal or test system, opt in only for that
+workspace session:
+
+```bash
+security-headers-auditor workspace --allow-private-targets
+```
+
+See the [v0.5 workspace tutorial](docs/V0.5_WORKSPACE_TUTORIAL.md) and its
+[controlled screenshots](docs/images/README.md).
+
 ## Continuous Assurance
 
 Continuous assurance uses a version-pinned JSON policy. Every target has a stable
@@ -181,6 +211,8 @@ focus, non-color status labels, responsive reflow, and print styles.
 The implementation is governed by:
 
 - [v0.4 Methodology Specification](docs/V0.4_METHODOLOGY_SPECIFICATION.md)
+- [v0.5 Workspace Methodology Specification](docs/V0.5_METHODOLOGY_SPECIFICATION.md)
+- [v0.5 Workspace Tutorial](docs/V0.5_WORKSPACE_TUTORIAL.md)
 - [Continuous Assurance Guide](docs/CONTINUOUS_ASSURANCE.md)
 - [v0.3 Methodology Specification](docs/V0.3_METHODOLOGY_SPECIFICATION.md)
 - [Citation Manifest](docs/CITATION_MANIFEST.md)
@@ -197,6 +229,8 @@ Run the deterministic suite:
 
 ```bash
 PYTHONPATH=src python3 -m unittest discover -s tests -v
+pnpm --dir frontend test --run
+pnpm --dir frontend build
 ```
 
 The suite covers API, authenticated application, brochure, hostile evidence,
@@ -208,13 +242,17 @@ override, redirect boundaries, redaction, escaping, and offline report constrain
 
 - [v0.4.0 release gate](docs/RELEASE_GATE_V0.4.md)
 - [v0.4.0 release notes](docs/releases/v0.4.0.md)
+- [v0.5.0 release gate](docs/RELEASE_GATE_V0.5.md)
+- [v0.5.0 release notes](docs/releases/v0.5.0.md)
 - [v0.3.0 release gate](docs/RELEASE_GATE_V0.3.md)
 - [v0.3.0 release notes](docs/releases/v0.3.0.md)
 - [v0.2.0 release notes](docs/releases/v0.2.0.md)
 
 A release is not labelled complete until automated tests, the Python CI matrix,
 desktop/mobile browser QA, accessibility checks, documentation, and the intended
-repository diff have verified evidence.
+repository diff have verified evidence. A tag-triggered release builds the wheel
+and source distribution, publishes SHA-256 checksums, and records a GitHub
+artifact provenance attestation before publication.
 
 ## Authorized Use
 
@@ -231,4 +269,3 @@ See [DISCLAIMER.md](DISCLAIMER.md).
 - Add optional machine-readable profile-definition export.
 - Add controlled multi-response assessment for route-level profile comparison.
 - Add CSP parsing depth without claiming full browser-policy validation.
-- Add signed release artifacts after the v0.4 release gate is complete.

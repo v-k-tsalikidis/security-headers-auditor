@@ -54,3 +54,14 @@ This is deterministic functional QA in one Chromium-based browser, not a
 substitute for assistive-technology testing or a cross-browser certification.
 The release uses this record together with the static accessibility contracts,
 frontend tests, and workspace integration suite.
+
+## Controlled Documentation Screenshots
+
+The target inventory, assessment, and assurance states were captured again on
+2026-07-19 using the same local fixture server and a temporary workspace named
+`v0.5 Controlled QA`. The saved images contain only `127.0.0.1` fixtures and
+show an assessment and assurance **failure** rather than implying a pass:
+
+- [Target inventory](images/v0.5-workspace-targets.jpg)
+- [Assessment](images/v0.5-workspace-assessment.jpg)
+- [Assurance diagnostics](images/v0.5-workspace-assurance.jpg)

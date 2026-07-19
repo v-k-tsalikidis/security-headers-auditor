@@ -8,13 +8,13 @@ version = "0.5.0"
 description = "Context-aware HTTP security headers auditor with policy-as-code assurance and regression-focused CI outputs."
 readme = "README.md"
 requires-python = ">=3.10"
-license = { text = "Apache-2.0" }
+license = "Apache-2.0"
+license-files = ["LICENSE", "THIRD_PARTY_NOTICES.md"]
 authors = [
   { name = "Vasileios Tsalikidis" }
 ]
 classifiers = [
   "Programming Language :: Python :: 3",
-  "License :: OSI Approved :: Apache Software License",
   "Topic :: Security",
   "Topic :: Internet :: WWW/HTTP",
   "Intended Audience :: Information Technology",
@@ -35,3 +35,6 @@ security_headers_auditor = [
   "workspace_static/assets/*.css",
   "workspace_static/assets/*.js",
 ]
+
+[tool.setuptools.exclude-package-data]
+security_headers_auditor = [".DS_Store"]
