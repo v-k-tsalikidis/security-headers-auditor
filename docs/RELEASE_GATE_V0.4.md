@@ -2,7 +2,7 @@
 
 ## Release Classification
 
-Current classification: **release candidate pending complete gate evidence**.
+Current classification: **complete**.
 
 Version 0.4.0 must not be labelled complete until every applicable item below is
 recorded as passed.
@@ -23,8 +23,8 @@ recorded as passed.
 - [x] Assurance JSON parses and records versions, outcome, and exit code.
 - [x] SARIF validates as version 2.1.0 and contains stable rule identifiers.
 - [x] JUnit XML parses and distinguishes failures from operational errors.
-- [ ] GitHub Actions Python 3.10, 3.11, and 3.12 matrix is green.
-- [ ] Workflow artifacts contain JSON, SARIF, JUnit, and baseline outputs.
+- [x] GitHub Actions Python 3.10, 3.11, and 3.12 matrix is green.
+- [x] Workflow artifacts contain JSON, SARIF, JUnit, and baseline outputs.
 
 ## Security And Privacy Gates
 
@@ -68,6 +68,11 @@ recorded as passed.
   `7.28:1`.
 - Wheel build/install: `security_headers_auditor-0.4.0-py3-none-any.whl`;
   offline install and installed CLI assurance run passed.
-- GitHub Actions: pending push and hosted matrix/artifact verification.
+- GitHub Actions: [run 29682900732](https://github.com/v-k-tsalikidis/security-headers-auditor/actions/runs/29682900732)
+  completed successfully for Python `3.10`, `3.11`, and `3.12`.
+- Hosted artifacts: all three matrix archives contain exactly
+  `assurance.json`, `assurance.sarif`, `assurance.junit.xml`, and
+  `assurance-candidate-baseline.json`; every candidate baseline is
+  byte-identical with the committed fixture baseline.
 - Final diff: `git diff --check` passed; ignored build/cache output is not
   part of the repository diff.
