@@ -5,20 +5,30 @@ from __future__ import annotations
 import json
 from dataclasses import asdict
 from html import escape
+from typing import TYPE_CHECKING
 from urllib.parse import urlparse
 
+from . import __version__
 from .auditor import AuditResult, HeaderFinding
 from .catalog import CITATIONS, Citation
+from .compliance import MAPPING_SET_VERSION
+
+if TYPE_CHECKING:
+    from .assurance import AssuranceRun
 
 
-METHODOLOGY_VERSION = "0.3.0"
+METHODOLOGY_VERSION = __version__
 
 
-def render_markdown(results: list[AuditResult]) -> str:
+def render_markdown(
+    results: list[AuditResult],
+    assurance_run: AssuranceRun | None = None,
+) -> str:
     lines: list[str] = [
         "# Security Headers Audit Report",
         "",
         f"Methodology version: `{METHODOLOGY_VERSION}`",
+        f"Evidence mapping set: `{MAPPING_SET_VERSION}`",
         "",
         "This read-only assessment applies response-profile expectations rather than a flat "
         "header checklist. Auto-detection is evidence-based but must be overridden when the "
@@ -27,6 +37,9 @@ def render_markdown(results: list[AuditResult]) -> str:
     ]
     lines.extend(_render_summary_table(results))
     lines.append("")
+    if assurance_run is not None:
+        lines.extend(_render_assurance_markdown(assurance_run))
+        lines.append("")
 
     for result in results:
         lines.extend(_render_result_markdown(result))
@@ -51,6 +64,7 @@ def render_json(results: list[AuditResult]) -> str:
     return json.dumps(
         {
             "methodology_version": METHODOLOGY_VERSION,
+            "mapping_set_version": MAPPING_SET_VERSION,
             "results": [asdict(result) for result in results],
         },
         indent=2,
@@ -58,7 +72,10 @@ def render_json(results: list[AuditResult]) -> str:
     )
 
 
-def render_html(results: list[AuditResult]) -> str:
+def render_html(
+    results: list[AuditResult],
+    assurance_run: AssuranceRun | None = None,
+) -> str:
     """Render an offline, dependency-free, escaped HTML report."""
     body = [
         '<a class="skip-link" href="#main-content">Skip to report content</a>',
@@ -69,6 +86,7 @@ def render_html(results: list[AuditResult]) -> str:
         "  </div>",
         '  <dl class="report-meta">',
         "    <div><dt>Methodology</dt><dd>v" + METHODOLOGY_VERSION + "</dd></div>",
+        "    <div><dt>Evidence</dt><dd>" + MAPPING_SET_VERSION + "</dd></div>",
         "    <div><dt>Targets</dt><dd>" + str(len(results)) + "</dd></div>",
         "    <div><dt>Processing</dt><dd>Local report</dd></div>",
         "  </dl>",
@@ -77,6 +95,8 @@ def render_html(results: list[AuditResult]) -> str:
         _render_html_executive_summary(results),
         _render_html_target_summary(results),
     ]
+    if assurance_run is not None:
+        body.append(_render_html_assurance_summary(assurance_run))
     for index, result in enumerate(results):
         body.append(_render_html_result(result, index))
     body.extend(
@@ -189,6 +209,26 @@ def _render_result_markdown(result: AuditResult) -> list[str]:
         lines.append(_render_finding_row(finding))
 
     contextual = _findings_by_category(result, "contextual")
+    assurance = _findings_by_category(result, "assurance")
+    if assurance:
+        lines.extend(
+            [
+                "",
+                "### Assurance Controls",
+                "",
+                "| Control | Expectation | Status | Severity | Evidence / Note | Mappings |",
+                "| --- | --- | --- | --- | --- | --- |",
+            ]
+        )
+        for finding in assurance:
+            evidence = finding.value if finding.value else finding.note
+            lines.append(
+                "| "
+                f"`{finding.name}` | {finding.applicability} | {finding.status} | "
+                f"{finding.severity} | {_escape_markdown_cell(evidence)} | "
+                f"{_escape_markdown_cell(', '.join(mapping.label for mapping in finding.evidence_mappings))} |"
+            )
+
     if contextual:
         lines.extend(
             [
@@ -330,6 +370,7 @@ def _render_html_result(result: AuditResult, index: int) -> str:
     profile_evidence = "".join(f"<li>{escape(item)}</li>" for item in result.profile_evidence)
     scored = _findings_by_category(result, "scored")
     contextual = _findings_by_category(result, "contextual")
+    assurance = _findings_by_category(result, "assurance")
     disclosure = _findings_by_category(result, "disclosure")
     first_actionable = next(
         (finding.key for finding in scored if finding.status in {"missing", "warning"}),
@@ -351,6 +392,7 @@ def _render_html_result(result: AuditResult, index: int) -> str:
     <div class="profile-evidence"><span>Decision evidence</span><ul>{profile_evidence}</ul></div>
   </div>
   {_render_html_finding_group("Profile-Scored Findings", scored, first_actionable)}
+  {_render_html_finding_group("Assurance Controls", assurance, None)}
   {_render_html_finding_group("Contextual Findings", contextual, None)}
   {_render_html_disclosure(disclosure)}
 </section>""".strip()
@@ -379,11 +421,7 @@ def _render_html_finding(
     open_by_default: bool,
 ) -> str:
     evidence = finding.value if finding.value is not None else "Header not observed."
-    standards = (
-        "<ul>" + "".join(f"<li>{escape(item)}</li>" for item in finding.standards) + "</ul>"
-        if finding.standards
-        else "<p>No direct standards mapping claimed.</p>"
-    )
+    mappings = _render_html_evidence_mappings(finding)
     citation_links = "".join(
         _citation_link(CITATIONS[key])
         for key in finding.citation_keys
@@ -420,8 +458,8 @@ def _render_html_finding(
       <p>{escape(finding.scoring_rationale)}</p>
     </div>
     <div class="finding-column research-column">
-      <h4>Standards mapping</h4>
-      {standards}
+      <h4>Evidence mappings</h4>
+      {mappings}
       <h4>Research and specifications</h4>
       <ul class="citation-list">{citation_links}</ul>
     </div>
@@ -711,6 +749,11 @@ main > section { padding: 24px 4px; border-bottom: 1px solid var(--border); }
 }
 .summary-rail > div { min-width: 0; padding: 17px 20px; border-left: 1px solid var(--border); }
 .summary-rail > div:first-child { border-left: 0; padding-left: 0; }
+.assurance-summary .summary-rail {
+  grid-template-columns: repeat(3, minmax(140px, 1fr));
+  margin-bottom: 16px;
+}
+.assurance-summary .summary-rail > div:first-child { padding-left: 20px; }
 .score-block strong { display: block; margin-top: 4px; font-size: 38px; line-height: 1; }
 .score-block strong span { color: var(--muted); font-size: 17px; font-weight: 600; }
 .score-block progress {
@@ -838,6 +881,13 @@ pre {
 .finding-column ul, .citation-list { margin: 0 0 16px; padding-left: 18px; }
 .citation-list li { margin-bottom: 7px; }
 .citation-list span, .references li span { display: block; color: var(--muted); font-size: 11px; }
+.mapping-list li { margin-bottom: 11px; }
+.mapping-list span, .mapping-list small {
+  display: block;
+  margin-top: 3px;
+  color: var(--muted);
+  font-size: 11px;
+}
 
 .disclosure-section { margin-top: 24px; }
 .references ol { columns: 2; column-gap: 46px; margin: 0; padding-left: 22px; }
@@ -866,13 +916,26 @@ pre {
 @media (max-width: 680px) {
   .report-header, main, .report-footer { width: min(100% - 28px, 1420px); }
   .report-header, .target-heading, .section-heading { align-items: flex-start; flex-direction: column; }
-  .report-meta { width: 100%; gap: 14px; }
-  .report-meta div:first-child { padding-left: 0; border-left: 0; }
+  .report-meta {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    width: 100%;
+    gap: 0;
+  }
+  .report-meta div {
+    min-width: 0;
+    padding: 10px 12px;
+    border-top: 1px solid var(--border);
+  }
+  .report-meta div:nth-child(odd) { padding-left: 0; border-left: 0; }
+  .report-meta div:nth-child(-n + 2) { border-top: 0; }
   h1 { font-size: 25px; }
   .summary-rail { grid-template-columns: 1fr 1fr; }
   .summary-rail > div { border-top: 1px solid var(--border); }
   .summary-rail > div:nth-child(odd) { border-left: 0; }
   .summary-rail > div:first-child { grid-column: 1 / -1; border-top: 0; }
+  .assurance-summary .summary-rail { grid-template-columns: 1fr; }
+  .assurance-summary .summary-rail > div { border-left: 0; }
   .target-score { text-align: left; }
   .profile-band { grid-template-columns: 1fr; }
   .profile-band > div { border-top: 1px solid var(--border); border-left: 0; }
@@ -903,3 +966,140 @@ pre {
   a { color: inherit; text-decoration: none; }
 }
 """.strip()
+
+
+def _render_assurance_markdown(run: AssuranceRun) -> list[str]:
+    lines = [
+        "## Continuous Assurance",
+        "",
+        f"- Policy: `{_escape_markdown_inline_code(run.policy_name)}`",
+        f"- Outcome: `{run.outcome}`",
+        f"- Exit code: `{run.exit_code}`",
+        f"- Policy violations: `{len(run.policy_violations)}`",
+        f"- Regressions: `{len(run.regressions)}`",
+        f"- Operational errors: `{len(run.operational_errors)}`",
+    ]
+    diagnostics = [
+        *(
+            (
+                violation.target_id,
+                violation.code,
+                violation.severity,
+                violation.control_key or "",
+                violation.message,
+            )
+            for violation in run.policy_violations
+        ),
+        *(
+            (
+                regression.target_id,
+                regression.code,
+                regression.severity,
+                regression.control_key or "",
+                regression.message,
+            )
+            for regression in run.regressions
+        ),
+    ]
+    if diagnostics:
+        lines.extend(
+            [
+                "",
+                "| Target | Diagnostic | Severity | Control | Detail |",
+                "| --- | --- | --- | --- | --- |",
+            ]
+        )
+        for target, code, severity, control, message in diagnostics:
+            lines.append(
+                "| "
+                f"{_escape_markdown_cell(target)} | "
+                f"{_escape_markdown_cell(code)} | "
+                f"{_escape_markdown_cell(severity)} | "
+                f"{_escape_markdown_cell(control)} | "
+                f"{_escape_markdown_cell(message)} |"
+            )
+    if run.operational_errors:
+        lines.extend(["", "### Operational Errors", ""])
+        lines.extend(
+            f"- {_escape_markdown_text(message)}"
+            for message in run.operational_errors
+        )
+    return lines
+
+
+def _render_html_assurance_summary(run: AssuranceRun) -> str:
+    diagnostics = [
+        *(
+            (
+                violation.target_id,
+                violation.code,
+                violation.severity,
+                violation.control_key or "",
+                violation.message,
+            )
+            for violation in run.policy_violations
+        ),
+        *(
+            (
+                regression.target_id,
+                regression.code,
+                regression.severity,
+                regression.control_key or "",
+                regression.message,
+            )
+            for regression in run.regressions
+        ),
+    ]
+    rows = "".join(
+        "<tr>"
+        f"<td>{escape(target)}</td>"
+        f"<td><code>{escape(code)}</code></td>"
+        f"<td>{_status_badge('error' if severity == 'high' else 'review')}</td>"
+        f"<td>{escape(control)}</td>"
+        f"<td>{escape(message)}</td>"
+        "</tr>"
+        for target, code, severity, control, message in diagnostics
+    )
+    diagnostic_table = (
+        '<div class="table-scroll" tabindex="0" aria-label="Scrollable assurance diagnostics">'
+        "<table><thead><tr><th scope=\"col\">Target</th><th scope=\"col\">Diagnostic</th>"
+        "<th scope=\"col\">Severity</th><th scope=\"col\">Control</th>"
+        f"<th scope=\"col\">Detail</th></tr></thead><tbody>{rows}</tbody></table></div>"
+        if rows
+        else "<p>No policy violations or regressions were detected.</p>"
+    )
+    errors = (
+        "<ul>"
+        + "".join(f"<li>{escape(message)}</li>" for message in run.operational_errors)
+        + "</ul>"
+        if run.operational_errors
+        else ""
+    )
+    return f"""
+<section class="assurance-summary" aria-labelledby="assurance-heading">
+  <div class="section-heading">
+    <h2 id="assurance-heading">Continuous Assurance</h2>
+    <p>Policy <strong>{escape(run.policy_name)}</strong> &middot; outcome <strong>{escape(run.outcome)}</strong> &middot; exit code <strong>{run.exit_code}</strong></p>
+  </div>
+  <div class="summary-rail">
+    {_metric("Policy violations", len(run.policy_violations))}
+    {_metric("Regressions", len(run.regressions))}
+    {_metric("Operational errors", len(run.operational_errors))}
+  </div>
+  {diagnostic_table}
+  {errors}
+</section>""".strip()
+
+
+def _render_html_evidence_mappings(finding: HeaderFinding) -> str:
+    if not finding.evidence_mappings:
+        return "<p>No direct evidence mapping claimed.</p>"
+    items = "".join(
+        "<li>"
+        f"<strong>{escape(mapping.label)}</strong>"
+        f"<span>{escape(mapping.rationale)}</span>"
+        f"<small>Limitation: {escape(mapping.limitations)}</small>"
+        "</li>"
+        for mapping in finding.evidence_mappings
+    )
+    return f'<ul class="mapping-list">{items}</ul>'

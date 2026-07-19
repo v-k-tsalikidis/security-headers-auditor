@@ -3,9 +3,19 @@
 from __future__ import annotations
 
 import argparse
+import sys
 from pathlib import Path
 
+from .assurance import (
+    BaselineCompatibilityError,
+    PolicyConfigurationError,
+    load_baseline,
+    load_policy,
+    run_assurance,
+    write_baseline,
+)
 from .auditor import audit_headers
+from .ci_report import render_assurance_json, render_junit, render_sarif
 from .report import render_html, render_json, render_markdown
 
 
@@ -21,9 +31,30 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument(
         "--format",
-        choices=("markdown", "json", "html"),
+        choices=("markdown", "json", "html", "sarif", "junit"),
         default="markdown",
         help="Report output format.",
+    )
+    parser.add_argument(
+        "--policy",
+        type=Path,
+        help=(
+            "Run continuous assurance from a versioned JSON policy. Positional "
+            "targets and --input-file are disabled in policy mode."
+        ),
+    )
+    parser.add_argument(
+        "--baseline",
+        type=Path,
+        help="Compare a policy run with an approved v0.4 baseline snapshot.",
+    )
+    parser.add_argument(
+        "--write-baseline",
+        type=Path,
+        help=(
+            "Write the current successful policy run as a deterministic baseline. "
+            "Review the diff before approving it in source control."
+        ),
     )
     parser.add_argument(
         "--profile",
@@ -51,6 +82,18 @@ def build_parser() -> argparse.ArgumentParser:
         ),
     )
     parser.add_argument(
+        "--reporting-readiness",
+        choices=("observe", "recommended", "required", "not_applicable"),
+        default="observe",
+        help="Contextual expectation for reporting endpoint and CSP linkage analysis.",
+    )
+    parser.add_argument(
+        "--cross-origin-isolation",
+        choices=("observe", "recommended", "required", "not_applicable"),
+        default="observe",
+        help="Contextual expectation for the COOP/COEP isolation bundle.",
+    )
+    parser.add_argument(
         "--output",
         type=Path,
         help="Write report to this path instead of stdout.",
@@ -68,6 +111,16 @@ def main(argv: list[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
 
+    if args.policy:
+        if args.targets or args.input_file:
+            parser.error("Do not combine --policy with positional targets or --input-file.")
+        return _run_policy_mode(args)
+
+    if args.baseline or args.write_baseline:
+        parser.error("--baseline and --write-baseline require --policy.")
+    if args.format in {"sarif", "junit"}:
+        parser.error(f"--format {args.format} requires --policy.")
+
     targets = list(args.targets)
     if args.input_file:
         targets.extend(_read_targets(args.input_file))
@@ -83,6 +136,8 @@ def main(argv: list[str] | None = None) -> int:
             profile=args.profile,
             include_query=args.include_query,
             allow_cross_origin_redirects=args.allow_cross_origin_redirects,
+            reporting_expectation=args.reporting_readiness,
+            cross_origin_isolation=args.cross_origin_isolation,
         )
         for target in targets
     ]
@@ -93,13 +148,40 @@ def main(argv: list[str] | None = None) -> int:
     }
     rendered = renderers[args.format](results)
 
-    if args.output:
-        args.output.parent.mkdir(parents=True, exist_ok=True)
-        args.output.write_text(rendered, encoding="utf-8")
-    else:
-        print(rendered)
+    _write_output(args.output, rendered)
 
-    return 0
+    return 2 if any(result.error for result in results) else 0
+
+
+def _run_policy_mode(args: argparse.Namespace) -> int:
+    try:
+        policy = load_policy(args.policy)
+        baseline = load_baseline(args.baseline) if args.baseline else None
+        run = run_assurance(policy, baseline=baseline)
+        if args.write_baseline:
+            write_baseline(args.write_baseline, run)
+    except (PolicyConfigurationError, BaselineCompatibilityError) as exc:
+        print(f"Configuration error: {exc}", file=sys.stderr)
+        return 2
+
+    results = [assessment.result for assessment in run.assessments]
+    renderers = {
+        "markdown": lambda: render_markdown(results, assurance_run=run),
+        "json": lambda: render_assurance_json(run),
+        "html": lambda: render_html(results, assurance_run=run),
+        "sarif": lambda: render_sarif(run),
+        "junit": lambda: render_junit(run),
+    }
+    _write_output(args.output, renderers[args.format]())
+    return run.exit_code
+
+
+def _write_output(path: Path | None, rendered: str) -> None:
+    if path:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(rendered, encoding="utf-8")
+    else:
+        print(rendered, end="" if rendered.endswith("\n") else "\n")
 
 
 def _read_targets(path: Path) -> list[str]:

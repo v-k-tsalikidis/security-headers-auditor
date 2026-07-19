@@ -1,10 +1,12 @@
 # Methodology
 
-Security Headers Auditor v0.3 evaluates one HTTP response against the expectations
-of an endpoint profile. It does not treat every header as universally applicable.
+Security Headers Auditor v0.4 evaluates one HTTP response against the expectations
+of an endpoint profile and can compare authorized targets with an explicit
+continuous assurance policy and approved baseline. It does not treat every header
+as universally applicable.
 
 The normative project specification is
-[V0.3 Methodology Specification](V0.3_METHODOLOGY_SPECIFICATION.md). The
+[V0.4 Methodology Specification](V0.4_METHODOLOGY_SPECIFICATION.md). The
 [Citation Manifest](CITATION_MANIFEST.md) records the primary standards,
 official guidance, and research used by the implementation.
 
@@ -17,9 +19,12 @@ official guidance, and research used by the implementation.
 4. Normalize header names without modifying observed values.
 5. Apply an explicit profile or conservatively infer `api`, `app`, or `brochure`.
 6. Evaluate scored rules using the selected profile's applicability and weights.
-7. Report contextual and disclosure observations outside the score.
-8. Redact URL query strings and fragments unless the operator explicitly retains them.
-9. Render Markdown, JSON, or a self-contained offline HTML report.
+7. Analyze reporting readiness and cross-origin isolation outside the score.
+8. Attach versioned compliance-supporting evidence with explicit limitations.
+9. When policy mode is active, evaluate thresholds and required controls.
+10. When an approved baseline is supplied, detect profile, score, and control regressions.
+11. Redact URL query strings and fragments unless the operator explicitly retains them.
+12. Render human-readable or CI-native output.
 
 ## Scoring
 
@@ -46,7 +51,11 @@ vulnerability count, compliance decision, or proof that the application is secur
 - Manual `--profile` selection is authoritative and is recorded in the report.
 - `not_applicable` means the rule is not assessed for that response profile.
 - Contextual observations may still require review even though they do not affect the score.
-- NIST mappings are control-informed relationships, not evidence of compliance.
+- Evidence mappings are versioned supporting relationships, not evidence of compliance.
+- Reporting readiness does not prove collector delivery or operational response.
+- Cross-origin isolation readiness does not prove runtime state or dependency compatibility.
+- Policy violations and regressions are separate from the profile score.
+- Baselines are approved comparison states, not waivers.
 - CSP, caching, and cross-origin policies require application-specific validation before deployment.
 
 See [Privacy, Accessibility, and Authorization](PRIVACY_ACCESSIBILITY_AUTHORIZATION.md)

@@ -1,0 +1,193 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/v-k-tsalikidis/security-headers-auditor/blob/main/docs/schemas/audit-policy.schema.json",
+  "title": "Security Headers Auditor Continuous Assurance Policy",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "methodology_version",
+    "name",
+    "targets"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "1.0"
+    },
+    "methodology_version": {
+      "const": "0.4.0"
+    },
+    "name": {
+      "type": "string",
+      "minLength": 1
+    },
+    "defaults": {
+      "$ref": "#/$defs/policySettings"
+    },
+    "targets": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "url"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "url": {
+            "type": "string",
+            "minLength": 1
+          },
+          "profile": {
+            "enum": [
+              "auto",
+              "app",
+              "api",
+              "brochure"
+            ]
+          },
+          "minimum_score": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 100
+          },
+          "maximum_score_drop": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 100
+          },
+          "fail_on_severity": {
+            "type": "array",
+            "uniqueItems": true,
+            "items": {
+              "enum": [
+                "high",
+                "medium",
+                "low"
+              ]
+            }
+          },
+          "required_controls": {
+            "type": "array",
+            "uniqueItems": true,
+            "items": {
+              "$ref": "#/$defs/controlKey"
+            }
+          },
+          "reporting_readiness": {
+            "$ref": "#/$defs/expectation"
+          },
+          "cross_origin_isolation": {
+            "$ref": "#/$defs/expectation"
+          },
+          "allow_cross_origin_redirects": {
+            "type": "boolean"
+          },
+          "include_query": {
+            "type": "boolean"
+          },
+          "timeout": {
+            "type": "number",
+            "exclusiveMinimum": 0
+          }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "policySettings": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "profile": {
+          "enum": [
+            "auto",
+            "app",
+            "api",
+            "brochure"
+          ]
+        },
+        "minimum_score": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 100
+        },
+        "maximum_score_drop": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 100
+        },
+        "fail_on_severity": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "enum": [
+              "high",
+              "medium",
+              "low"
+            ]
+          }
+        },
+        "required_controls": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/controlKey"
+          }
+        },
+        "reporting_readiness": {
+          "$ref": "#/$defs/expectation"
+        },
+        "cross_origin_isolation": {
+          "$ref": "#/$defs/expectation"
+        },
+        "allow_cross_origin_redirects": {
+          "type": "boolean"
+        },
+        "include_query": {
+          "type": "boolean"
+        },
+        "timeout": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "allow_auto_profile": {
+          "type": "boolean"
+        }
+      }
+    },
+    "expectation": {
+      "enum": [
+        "observe",
+        "recommended",
+        "required",
+        "not_applicable"
+      ]
+    },
+    "controlKey": {
+      "enum": [
+        "cache-control",
+        "clear-site-data",
+        "content-security-policy",
+        "cross-origin-embedder-policy",
+        "cross-origin-isolation-bundle",
+        "cross-origin-opener-policy",
+        "cross-origin-resource-policy",
+        "permissions-policy",
+        "referrer-policy",
+        "reporting-endpoints",
+        "reporting-readiness",
+        "strict-transport-security",
+        "x-content-type-options",
+        "x-dns-prefetch-control",
+        "x-frame-options",
+        "x-permitted-cross-domain-policies"
+      ]
+    }
+  }
+}

@@ -15,6 +15,8 @@ scoring model.
 | `w3c-csp3` | [Content Security Policy Level 3](https://www.w3.org/TR/CSP3/) | CSP directives and processing model. |
 | `w3c-referrer` | [Referrer Policy](https://www.w3.org/TR/referrer-policy/) | Referrer policy semantics. |
 | `w3c-permissions` | [Permissions Policy](https://www.w3.org/TR/permissions-policy-1/) | Browser feature policy model. |
+| `w3c-reporting` | [Reporting API](https://www.w3.org/TR/reporting-1/) | Modern Reporting-Endpoints syntax, trustworthiness, and delivery model. |
+| `w3c-reporting-legacy` | [Reporting API Working Draft, September 2018](https://www.w3.org/TR/2018/WD-reporting-1-20180925/) | Historical Report-To compatibility interpretation. |
 | `whatwg-fetch` | [Fetch Standard](https://fetch.spec.whatwg.org/) | CORP and related fetch behavior. |
 | `whatwg-html` | [HTML Standard: Cross-origin opener policies](https://html.spec.whatwg.org/multipage/browsers.html#cross-origin-opener-policies) | COOP behavior. |
 | `w3c-post-spectre` | [Post-Spectre Web Development](https://www.w3.org/TR/post-spectre-webdev/) | Cross-origin isolation architecture. |
@@ -28,6 +30,7 @@ scoring model.
 | `owasp-rest` | [OWASP REST Security Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/REST_Security_Cheat_Sheet.html) | API-specific applicability and response guidance. |
 | `owasp-csp-testing` | [OWASP WSTG: Testing for Content Security Policy](https://owasp.org/www-project-web-security-testing-guide/latest/4-Web_Application_Security_Testing/02-Configuration_and_Deployment_Management_Testing/12-Test_for_Content_Security_Policy) | CSP review methodology. |
 | `nist-800-53r5` | [NIST SP 800-53 Rev. 5](https://csrc.nist.gov/pubs/sp/800/53/r5/upd1/final) | Control-informed relationships only; not compliance testing. |
+| `oasis-sarif-2.1.0` | [OASIS SARIF 2.1.0 JSON Schema](https://docs.oasis-open.org/sarif/sarif/v2.1.0/os/schemas/sarif-schema-2.1.0.json) | Normative schema used to validate passing and regression CI artifacts. |
 
 ## Peer-Reviewed Research
 
@@ -44,14 +47,25 @@ scoring model.
 | `mdn-clear-site-data` | [MDN: Clear-Site-Data](https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Clear-Site-Data) | Contextual logout/reset guidance. |
 | `mdn-cache-control` | [MDN: Cache-Control](https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Cache-Control) | Cache directive reference. |
 
-## Implemented Mappings
+## Versioned Evidence Mappings
 
-- HSTS: OWASP ASVS v5.0.0-3.4.1; NIST SP 800-53 Rev. 5 SC-8 (control-informed).
-- CORS: OWASP ASVS v5.0.0-3.4.2 is research context but is not scored in v0.3.
-- CSP: OWASP ASVS v5.0.0-3.4.3 and 3.4.6; NIST SC-18 (control-informed).
-- `X-Content-Type-Options`: OWASP ASVS v5.0.0-3.4.4.
-- `Referrer-Policy`: OWASP ASVS v5.0.0-3.4.5.
-- Framing control: OWASP ASVS v5.0.0-3.4.6. CSP `frame-ancestors` is preferred;
-  `X-Frame-Options` is retained only as a legacy compatibility signal.
-- COOP: OWASP ASVS v5.0.0-3.4.8 for document-rendering responses.
-- CORP: OWASP ASVS v5.0.0-3.5.8 for authenticated resources.
+Mapping set `2026.07` is stored in
+`src/security_headers_auditor/data/compliance_evidence_v1.json`. Every mapping
+contains a framework version, requirement identifier, relationship, rationale,
+limitation, and citation source.
+
+The fixed claims policy is `supporting-evidence-only`. Relationships such as
+`supports`, `related`, and `legacy-support` do not mean `satisfies`, `certifies`,
+or `complies with`.
+
+The current set includes:
+
+- HSTS: OWASP ASVS 5.0.0 V3.4.1 and NIST SP 800-53 Rev. 5 SC-8.
+- CSP: OWASP ASVS 5.0.0 V3.4.3 and V3.4.6; NIST SC-18.
+- CSP reporting readiness: OWASP ASVS 5.0.0 V3.4.7.
+- `X-Content-Type-Options`: OWASP ASVS 5.0.0 V3.4.4.
+- `Referrer-Policy`: OWASP ASVS 5.0.0 V3.4.5.
+- legacy `X-Frame-Options`: supporting context for OWASP ASVS V3.4.6, which
+  requires CSP `frame-ancestors` as the modern control.
+- COOP and the cross-origin isolation bundle: OWASP ASVS 5.0.0 V3.4.8.
+- CORP and resource isolation context: OWASP ASVS 5.0.0 V3.5.8.

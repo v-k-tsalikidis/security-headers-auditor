@@ -1,0 +1,154 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/v-k-tsalikidis/security-headers-auditor/blob/main/docs/schemas/assurance-baseline.schema.json",
+  "title": "Security Headers Auditor Assurance Baseline",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "methodology_version",
+    "mapping_set_version",
+    "policy_name",
+    "targets"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "1.0"
+    },
+    "methodology_version": {
+      "const": "0.4.0"
+    },
+    "mapping_set_version": {
+      "const": "2026.07"
+    },
+    "policy_name": {
+      "type": "string",
+      "minLength": 1
+    },
+    "targets": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "target",
+          "selected_profile",
+          "score",
+          "findings"
+        ],
+        "properties": {
+          "target": {
+            "type": "string",
+            "minLength": 1
+          },
+          "selected_profile": {
+            "enum": [
+              "app",
+              "api",
+              "brochure"
+            ]
+          },
+          "score": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 100
+          },
+          "findings": {
+            "type": "object",
+            "propertyNames": {
+              "$ref": "#/$defs/controlKey"
+            },
+            "additionalProperties": {
+              "$ref": "#/$defs/finding"
+            }
+          }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "controlKey": {
+      "enum": [
+        "cache-control",
+        "clear-site-data",
+        "content-security-policy",
+        "cross-origin-embedder-policy",
+        "cross-origin-isolation-bundle",
+        "cross-origin-opener-policy",
+        "cross-origin-resource-policy",
+        "permissions-policy",
+        "referrer-policy",
+        "reporting-endpoints",
+        "reporting-readiness",
+        "server",
+        "strict-transport-security",
+        "x-content-type-options",
+        "x-dns-prefetch-control",
+        "x-frame-options",
+        "x-permitted-cross-domain-policies",
+        "x-powered-by"
+      ]
+    },
+    "finding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "status",
+        "severity",
+        "category",
+        "applicability",
+        "points",
+        "max_points"
+      ],
+      "properties": {
+        "status": {
+          "enum": [
+            "pass",
+            "info",
+            "observed",
+            "not_applicable",
+            "review",
+            "warning",
+            "missing",
+            "error"
+          ]
+        },
+        "severity": {
+          "enum": [
+            "info",
+            "low",
+            "medium",
+            "high"
+          ]
+        },
+        "category": {
+          "enum": [
+            "scored",
+            "contextual",
+            "assurance",
+            "disclosure"
+          ]
+        },
+        "applicability": {
+          "enum": [
+            "required",
+            "recommended",
+            "informational",
+            "observe",
+            "not_applicable"
+          ]
+        },
+        "points": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100
+        },
+        "max_points": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100
+        }
+      }
+    }
+  }
+}

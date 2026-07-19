@@ -25,16 +25,19 @@ Security Headers Auditor is a small, inspectable engineering tool for:
 - Modern CSP `frame-ancestors` recognition rather than forcing legacy
   `X-Frame-Options`.
 - Contextual and information-disclosure findings separated from the score.
-- Version-pinned standards mappings and a visible citation manifest.
-- Markdown and JSON for automation, plus a self-contained professional HTML report.
+- Coherent reporting-readiness and cross-origin-isolation capability analysis.
+- Versioned evidence-only mappings with rationale and explicit limitations.
+- Policy-as-code, approved baselines, and regression detection for continuous assurance.
+- SARIF and JUnit outputs alongside Markdown, JSON, and self-contained HTML.
 - URL data minimization and escaped untrusted evidence by default.
 - Deterministic local fixtures with no remote dependency in regression tests.
 
 ## What It Does Not Claim
 
 The project is not a vulnerability scanner, compliance engine, CSP validator,
-replacement for Mozilla HTTP Observatory, or substitute for application testing.
-Its score expresses profile alignment only.
+monitoring service, browser runtime validator, replacement for Mozilla HTTP
+Observatory, or substitute for application testing. Its score expresses profile
+alignment only. Assurance outcomes express policy and drift state, not certification.
 
 ## Recruiter Signal
 
@@ -42,6 +45,8 @@ The repository demonstrates:
 
 - risk-based security modelling and explicit non-goals;
 - Python CLI and data-model design;
+- policy-as-code and deterministic regression engineering;
+- CI interoperability through SARIF and JUnit;
 - standards and research traceability;
 - secure report rendering;
 - accessibility and privacy-aware product judgment;

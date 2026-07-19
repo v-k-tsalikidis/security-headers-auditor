@@ -1,0 +1,151 @@
+{
+  "mapping_set_version": "2026.07",
+  "methodology_version": "0.4.0",
+  "policy_name": "deterministic-local-ci",
+  "schema_version": "1.0",
+  "targets": {
+    "fixture-app": {
+      "findings": {
+        "cache-control": {
+          "applicability": "informational",
+          "category": "contextual",
+          "max_points": 0,
+          "points": 0.0,
+          "severity": "info",
+          "status": "info"
+        },
+        "clear-site-data": {
+          "applicability": "informational",
+          "category": "contextual",
+          "max_points": 0,
+          "points": 0.0,
+          "severity": "info",
+          "status": "info"
+        },
+        "content-security-policy": {
+          "applicability": "required",
+          "category": "scored",
+          "max_points": 25,
+          "points": 25.0,
+          "severity": "info",
+          "status": "pass"
+        },
+        "cross-origin-embedder-policy": {
+          "applicability": "informational",
+          "category": "contextual",
+          "max_points": 0,
+          "points": 0.0,
+          "severity": "info",
+          "status": "info"
+        },
+        "cross-origin-isolation-bundle": {
+          "applicability": "required",
+          "category": "assurance",
+          "max_points": 0,
+          "points": 0.0,
+          "severity": "info",
+          "status": "pass"
+        },
+        "cross-origin-opener-policy": {
+          "applicability": "recommended",
+          "category": "scored",
+          "max_points": 10,
+          "points": 10.0,
+          "severity": "info",
+          "status": "pass"
+        },
+        "cross-origin-resource-policy": {
+          "applicability": "recommended",
+          "category": "scored",
+          "max_points": 10,
+          "points": 10.0,
+          "severity": "info",
+          "status": "pass"
+        },
+        "permissions-policy": {
+          "applicability": "recommended",
+          "category": "scored",
+          "max_points": 10,
+          "points": 10.0,
+          "severity": "info",
+          "status": "pass"
+        },
+        "referrer-policy": {
+          "applicability": "required",
+          "category": "scored",
+          "max_points": 10,
+          "points": 10.0,
+          "severity": "info",
+          "status": "pass"
+        },
+        "reporting-endpoints": {
+          "applicability": "required",
+          "category": "assurance",
+          "max_points": 0,
+          "points": 0.0,
+          "severity": "info",
+          "status": "pass"
+        },
+        "reporting-readiness": {
+          "applicability": "required",
+          "category": "assurance",
+          "max_points": 0,
+          "points": 0.0,
+          "severity": "info",
+          "status": "pass"
+        },
+        "server": {
+          "applicability": "informational",
+          "category": "disclosure",
+          "max_points": 0,
+          "points": 0.0,
+          "severity": "low",
+          "status": "observed"
+        },
+        "strict-transport-security": {
+          "applicability": "required",
+          "category": "scored",
+          "max_points": 20,
+          "points": 5.0,
+          "severity": "high",
+          "status": "warning"
+        },
+        "x-content-type-options": {
+          "applicability": "required",
+          "category": "scored",
+          "max_points": 10,
+          "points": 10.0,
+          "severity": "info",
+          "status": "pass"
+        },
+        "x-dns-prefetch-control": {
+          "applicability": "informational",
+          "category": "contextual",
+          "max_points": 0,
+          "points": 0.0,
+          "severity": "info",
+          "status": "info"
+        },
+        "x-frame-options": {
+          "applicability": "recommended",
+          "category": "scored",
+          "max_points": 5,
+          "points": 5.0,
+          "severity": "info",
+          "status": "pass"
+        },
+        "x-permitted-cross-domain-policies": {
+          "applicability": "informational",
+          "category": "contextual",
+          "max_points": 0,
+          "points": 0.0,
+          "severity": "info",
+          "status": "info"
+        }
+      },
+      "score": 85,
+      "selected_profile": "app",
+      "target": "http://127.0.0.1:8765/assurance-ready"
+    }
+  }
+}

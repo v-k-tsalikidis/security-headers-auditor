@@ -363,7 +363,9 @@ class ReportRegressionTests(unittest.TestCase):
 
     def test_markdown_report_records_profile_and_research(self):
         report = render_markdown([self._result("brochure")])
-        self.assertIn("Methodology version: `0.3.0`", report)
+        self.assertIn("Methodology version: `0.4.0`", report)
+        self.assertIn("Evidence mapping set: `2026.07`", report)
+        self.assertIn("### Assurance Controls", report)
         self.assertIn("### Profile Decision", report)
         self.assertIn(
             "OWASP Application Security Verification Standard 5.0.0",
@@ -373,7 +375,8 @@ class ReportRegressionTests(unittest.TestCase):
 
     def test_json_report_exposes_methodology_and_profile(self):
         payload = json.loads(render_json([self._result("api")]))
-        self.assertEqual(payload["methodology_version"], "0.3.0")
+        self.assertEqual(payload["methodology_version"], "0.4.0")
+        self.assertEqual(payload["mapping_set_version"], "2026.07")
         self.assertEqual(payload["results"][0]["selected_profile"], "api")
         self.assertEqual(payload["results"][0]["score"], 100)
 
@@ -418,12 +421,18 @@ class ReportRegressionTests(unittest.TestCase):
                 "html",
                 "--include-query",
                 "--allow-cross-origin-redirects",
+                "--reporting-readiness",
+                "required",
+                "--cross-origin-isolation",
+                "recommended",
             ]
         )
         self.assertEqual(args.profile, "api")
         self.assertEqual(args.format, "html")
         self.assertTrue(args.include_query)
         self.assertTrue(args.allow_cross_origin_redirects)
+        self.assertEqual(args.reporting_readiness, "required")
+        self.assertEqual(args.cross_origin_isolation, "recommended")
 
     def test_html_contains_no_remote_runtime_dependencies(self):
         html = render_html([self._result("app")])

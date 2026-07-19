@@ -1,0 +1,48 @@
+{
+  "schema_version": "1.0",
+  "methodology_version": "0.4.0",
+  "name": "authorized-production-headers",
+  "defaults": {
+    "minimum_score": 80,
+    "maximum_score_drop": 0,
+    "fail_on_severity": [
+      "high"
+    ],
+    "required_controls": [
+      "strict-transport-security",
+      "x-content-type-options"
+    ],
+    "reporting_readiness": "observe",
+    "cross_origin_isolation": "observe",
+    "allow_cross_origin_redirects": false,
+    "include_query": false,
+    "timeout": 8,
+    "allow_auto_profile": false
+  },
+  "targets": [
+    {
+      "id": "public-site",
+      "url": "https://example.com/",
+      "profile": "brochure",
+      "required_controls": [
+        "strict-transport-security",
+        "content-security-policy",
+        "x-content-type-options"
+      ]
+    },
+    {
+      "id": "authenticated-portal",
+      "url": "https://portal.example.com/",
+      "profile": "app",
+      "minimum_score": 90,
+      "reporting_readiness": "required",
+      "cross_origin_isolation": "recommended"
+    },
+    {
+      "id": "status-api",
+      "url": "https://api.example.com/status",
+      "profile": "api",
+      "cross_origin_isolation": "not_applicable"
+    }
+  ]
+}

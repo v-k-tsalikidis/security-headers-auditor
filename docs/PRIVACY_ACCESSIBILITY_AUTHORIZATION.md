@@ -19,6 +19,22 @@ is responsible for storage, retention, access control, and redaction before shar
 This data-minimization posture supports privacy-conscious use. It is not a GDPR
 compliance assessment, legal opinion, or certification.
 
+Continuous assurance policy files can contain target hosts, paths, organizational
+thresholds, and security expectations. Do not store secrets, session identifiers,
+reset links, or personal data in policy URLs.
+
+Approved baselines deliberately exclude raw header values and runtime timestamps.
+They still reveal target identifiers, selected profiles, scores, and control states
+and must be protected as security evidence.
+
+CI systems may upload JSON, SARIF, JUnit, HTML, or Markdown as build artifacts.
+Apply repository access controls, artifact retention limits, and redaction before
+sharing these outputs outside the authorized team.
+
+Reporting endpoints can receive document URLs, user-agent information, policy
+samples, and other operational data. The auditor checks response configuration,
+not collector privacy, sanitization, retention, or access control.
+
 ## Authorization Boundary
 
 Use the tool only on systems that you:
@@ -80,3 +96,6 @@ is therefore not claimed.
 - A single response cannot reveal route sensitivity or complete policy coverage.
 - The report does not inspect contrast under user-supplied browser extensions or custom styles.
 - Browser QA covers the documented release matrix, not every browser and assistive technology.
+- Reporting readiness does not verify collector delivery, availability, or triage.
+- Cross-origin isolation readiness does not crawl or execute the document resource graph.
+- CI integrations and artifact stores are external processors controlled by the operator.

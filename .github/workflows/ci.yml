@@ -29,3 +29,50 @@ jobs:
 
       - name: Run unit tests
         run: python -m unittest discover -s tests -v
+
+      - name: Exercise deterministic assurance outputs
+        shell: bash
+        run: |
+          python tests/fixture_server.py --port 8765 > fixture-server.log 2>&1 &
+          FIXTURE_PID=$!
+          trap 'kill "$FIXTURE_PID"' EXIT
+          curl \
+            --fail \
+            --retry 10 \
+            --retry-connrefused \
+            --retry-delay 1 \
+            --silent \
+            --show-error \
+            http://127.0.0.1:8765/assurance-ready > /dev/null
+          security-headers-auditor \
+            --policy examples/ci-fixture-policy.json \
+            --baseline examples/ci-fixture-baseline.json \
+            --write-baseline build/assurance-candidate-baseline.json \
+            --format json \
+            --output build/assurance.json
+          cmp \
+            --silent \
+            examples/ci-fixture-baseline.json \
+            build/assurance-candidate-baseline.json
+          security-headers-auditor \
+            --policy examples/ci-fixture-policy.json \
+            --baseline examples/ci-fixture-baseline.json \
+            --format sarif \
+            --output build/assurance.sarif
+          security-headers-auditor \
+            --policy examples/ci-fixture-policy.json \
+            --baseline examples/ci-fixture-baseline.json \
+            --format junit \
+            --output build/assurance.junit.xml
+
+      - name: Upload assurance artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: assurance-python-${{ matrix.python-version }}
+          path: |
+            build/assurance.json
+            build/assurance.sarif
+            build/assurance.junit.xml
+            build/assurance-candidate-baseline.json
+          if-no-files-found: error

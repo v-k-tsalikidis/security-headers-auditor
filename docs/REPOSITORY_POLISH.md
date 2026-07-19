@@ -5,7 +5,7 @@
 Recommended:
 
 ```text
-Context-aware Python CLI for auditing HTTP security headers with evidence-based profiles and offline reports.
+Context-aware HTTP security header assurance with profiles, approved baselines, regression detection, and offline reports.
 ```
 
 Short alternative:
@@ -57,7 +57,7 @@ patent terms.
 
 ## Visibility
 
-For portfolio use, make the repository public only when the v0.3 release gate is
+For portfolio use, make the repository public only when the v0.4 release gate is
 complete and the owner is ready to publish it.
 
 ## Actions
@@ -77,19 +77,19 @@ tests (Python 3.12)
 ```
 
 Each job must install the package, compile source and tests, and run the complete
-deterministic unittest suite.
+deterministic unittest suite. Version 0.4 also runs the local fixture server and
+uploads the assurance JSON, SARIF, JUnit, and baseline artifacts.
 
 ## Release
 
 Create the release only after every row in
-[RELEASE_GATE_V0.3.md](RELEASE_GATE_V0.3.md) is verified:
+[RELEASE_GATE_V0.4.md](RELEASE_GATE_V0.4.md) is verified:
 
 ```text
-Tag: v0.3.0
+Tag: v0.4.0
 Target: main
-Title: v0.3.0 - Context-aware security header assessment
+Title: v0.4.0 - Continuous security header assurance
 ```
 
-Use [v0.3.0 release notes](releases/v0.3.0.md). Do not publish the generated
-ImageGen concept reference; it contains illustrative data and is not part of the
-product or evidence set.
+Use [v0.4.0 release notes](releases/v0.4.0.md). Publish only after the private
+repository's GitHub Actions matrix and uploaded artifact set have been verified.

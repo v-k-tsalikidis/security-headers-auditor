@@ -1,0 +1,26 @@
+{
+  "schema_version": "1.0",
+  "methodology_version": "0.4.0",
+  "name": "deterministic-local-ci",
+  "defaults": {
+    "minimum_score": 80,
+    "maximum_score_drop": 0,
+    "fail_on_severity": [],
+    "allow_auto_profile": false
+  },
+  "targets": [
+    {
+      "id": "fixture-app",
+      "url": "http://127.0.0.1:8765/assurance-ready",
+      "profile": "app",
+      "required_controls": [
+        "content-security-policy",
+        "x-content-type-options",
+        "reporting-readiness",
+        "cross-origin-isolation-bundle"
+      ],
+      "reporting_readiness": "required",
+      "cross_origin_isolation": "required"
+    }
+  ]
+}

@@ -1,0 +1,125 @@
+{
+  "schema_version": "1.0",
+  "mapping_set_id": "security-headers-auditor-compliance-evidence",
+  "mapping_set_version": "2026.07",
+  "last_reviewed": "2026-07-19",
+  "claims_policy": "supporting-evidence-only",
+  "frameworks": {
+    "nist-sp-800-53": {
+      "name": "NIST SP 800-53",
+      "version": "Rev. 5 Update 1",
+      "citation_key": "nist-800-53r5"
+    },
+    "owasp-asvs": {
+      "name": "OWASP Application Security Verification Standard",
+      "version": "5.0.0",
+      "citation_key": "asvs-5"
+    }
+  },
+  "mappings": [
+    {
+      "control_key": "strict-transport-security",
+      "framework": "owasp-asvs",
+      "requirement": "V3.4.1",
+      "relationship": "supports",
+      "rationale": "Observed HSTS configuration can support verification that responses declare a one-year transport policy and, at higher assurance levels, include subdomains.",
+      "limitations": "One response does not prove coverage across every route, host, subdomain, browser state, or the first unauthenticated HTTP visit."
+    },
+    {
+      "control_key": "strict-transport-security",
+      "framework": "nist-sp-800-53",
+      "requirement": "SC-8",
+      "relationship": "related",
+      "rationale": "HSTS is related to enforcing protected browser transport after the policy has been learned.",
+      "limitations": "The header is not evidence that the broader transmission confidentiality and integrity control is fully implemented."
+    },
+    {
+      "control_key": "content-security-policy",
+      "framework": "owasp-asvs",
+      "requirement": "V3.4.3",
+      "relationship": "supports",
+      "rationale": "Observed CSP directives can support verification of trusted content loading and execution restrictions.",
+      "limitations": "Header presence alone does not establish policy quality, route coverage, nonce correctness, or resistance to application-specific bypasses."
+    },
+    {
+      "control_key": "content-security-policy",
+      "framework": "owasp-asvs",
+      "requirement": "V3.4.6",
+      "relationship": "supports",
+      "rationale": "An explicit frame-ancestors directive can support verification of modern framing restrictions.",
+      "limitations": "The auditor observes one response and does not prove that frame-ancestors is consistently deployed across every document response."
+    },
+    {
+      "control_key": "content-security-policy",
+      "framework": "nist-sp-800-53",
+      "requirement": "SC-18",
+      "relationship": "related",
+      "rationale": "CSP is related to constraining executable browser content and reducing the privilege available to injected code.",
+      "limitations": "CSP is a defense-in-depth mechanism and does not satisfy mobile-code control requirements by itself."
+    },
+    {
+      "control_key": "x-content-type-options",
+      "framework": "owasp-asvs",
+      "requirement": "V3.4.4",
+      "relationship": "supports",
+      "rationale": "The nosniff directive directly supports verification that browsers are instructed not to guess response MIME types.",
+      "limitations": "The header does not prove that the declared Content-Type is correct for the response body."
+    },
+    {
+      "control_key": "x-frame-options",
+      "framework": "owasp-asvs",
+      "requirement": "V3.4.6",
+      "relationship": "legacy-support",
+      "rationale": "X-Frame-Options may provide legacy framing protection alongside the preferred CSP frame-ancestors directive.",
+      "limitations": "ASVS identifies frame-ancestors as the required modern control and states that X-Frame-Options must not be relied upon alone."
+    },
+    {
+      "control_key": "referrer-policy",
+      "framework": "owasp-asvs",
+      "requirement": "V3.4.5",
+      "relationship": "supports",
+      "rationale": "An explicit restrictive referrer policy can support verification that URL data leakage is deliberately constrained.",
+      "limitations": "One response cannot establish whether URLs contain sensitive data or whether every document applies the intended policy."
+    },
+    {
+      "control_key": "reporting-readiness",
+      "framework": "owasp-asvs",
+      "requirement": "V3.4.7",
+      "relationship": "supports",
+      "rationale": "A valid CSP reporting directive linked to a trustworthy reporting endpoint can support verification that violation reporting is configured.",
+      "limitations": "Configuration evidence does not prove browser delivery, collector availability, retention, triage, or incident response."
+    },
+    {
+      "control_key": "cross-origin-opener-policy",
+      "framework": "owasp-asvs",
+      "requirement": "V3.4.8",
+      "relationship": "supports",
+      "rationale": "A recognized COOP directive can support verification that a document declares an intentional opener relationship policy.",
+      "limitations": "The correct value depends on popup, payment, and federated sign-in requirements."
+    },
+    {
+      "control_key": "cross-origin-resource-policy",
+      "framework": "owasp-asvs",
+      "requirement": "V3.5.8",
+      "relationship": "supports",
+      "rationale": "A restrictive CORP value can support verification that authenticated resources declare cross-origin loading boundaries.",
+      "limitations": "The correct policy is resource-specific and cannot be inferred from the top-level response alone."
+    },
+    {
+      "control_key": "cross-origin-isolation-bundle",
+      "framework": "owasp-asvs",
+      "requirement": "V3.4.8",
+      "relationship": "related",
+      "rationale": "The bundle assesses whether the observed response declares the COOP and COEP values normally required for cross-origin isolation readiness.",
+      "limitations": "Actual crossOriginIsolated state also depends on browser behavior and every dependent resource in the page graph."
+    },
+    {
+      "control_key": "cross-origin-isolation-bundle",
+      "framework": "owasp-asvs",
+      "requirement": "V3.5.8",
+      "relationship": "related",
+      "rationale": "CORP and compatible CORS behavior on dependent resources contribute to a coherent cross-origin isolation deployment.",
+      "limitations": "A single-response header audit cannot inspect the complete dependency graph or runtime compatibility."
+    }
+  ]
+}

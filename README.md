@@ -9,13 +9,17 @@ authenticated web application, API response, or public brochure site.
 
 Security Headers Auditor avoids the universal checklist model. It records why a
 response profile was selected, scores only controls applicable to that profile,
-identifies weak values, and preserves an evidence trail to standards and research.
+identifies weak values, and preserves a versioned evidence trail to standards and
+research. Its continuous assurance mode adds policy thresholds, approved baselines,
+regression detection, and CI-native outputs without turning compliance mappings
+into certification claims.
 
 ## Why Context Matters
 
 A JSON API should not receive the same browser-document penalties as an authenticated
-HTML application. A header can also be present and still be weak. Version 0.3 treats
-applicability, configuration quality, and evidence as separate concerns.
+HTML application. A header can also be present and still be weak. Version 0.4 treats
+applicability, configuration quality, assurance policy, regression state, and
+compliance-supporting evidence as separate concerns.
 
 The result is a transparent engineering assessment:
 
@@ -24,8 +28,13 @@ The result is a transparent engineering assessment:
 - explicit `--profile` override when the operator knows the endpoint purpose;
 - partial credit for weak or incomplete values;
 - contextual and disclosure observations outside the score;
-- version-pinned OWASP ASVS 5.0.0 mappings and primary specifications;
-- NIST relationships clearly labelled as control-informed, not compliance proof;
+- reporting endpoint syntax and CSP reporting-linkage analysis;
+- response-level COOP/COEP cross-origin isolation readiness analysis;
+- versioned OWASP ASVS 5.0.0 and NIST SP 800-53 evidence mappings;
+- mappings explicitly labelled as supporting evidence, never compliance proof;
+- JSON policy-as-code and deterministic approved baselines;
+- score, profile, and control-state regression detection;
+- SARIF 2.1.0 and JUnit XML outputs for CI systems;
 - Markdown, JSON, and offline self-contained HTML reports;
 - deterministic tests with no remote-site dependency.
 
@@ -72,6 +81,18 @@ security-headers-auditor https://portal.example.com \
   --output reports/portal-report.html
 ```
 
+Assess reporting and cross-origin isolation readiness without changing the profile
+score:
+
+```bash
+security-headers-auditor https://portal.example.com \
+  --profile app \
+  --reporting-readiness required \
+  --cross-origin-isolation recommended \
+  --format html \
+  --output reports/portal-assurance.html
+```
+
 Audit a controlled list:
 
 ```bash
@@ -98,6 +119,45 @@ security-headers-auditor https://example.com \
   --allow-cross-origin-redirects
 ```
 
+## Continuous Assurance
+
+Continuous assurance uses a version-pinned JSON policy. Every target has a stable
+identifier and an explicit response profile by default. Copy
+[`examples/audit-policy.json`](examples/audit-policy.json), replace the example
+targets with systems inside the authorized scope, and review every threshold.
+
+Create an initial candidate baseline:
+
+```bash
+security-headers-auditor \
+  --policy audit-policy.json \
+  --write-baseline assurance-baseline.json \
+  --format json \
+  --output reports/assurance-initial.json
+```
+
+Review and approve the baseline diff before committing it. Subsequent CI runs can
+detect score, profile, and control-status regressions:
+
+```bash
+security-headers-auditor \
+  --policy audit-policy.json \
+  --baseline assurance-baseline.json \
+  --format sarif \
+  --output reports/assurance.sarif
+```
+
+JUnit output is available with `--format junit`. Exit codes are stable:
+
+| Code | Meaning |
+| ---: | --- |
+| `0` | Policy passed and no regression was detected |
+| `1` | Policy violation or approved-baseline regression |
+| `2` | Invalid configuration, incompatible baseline, or operational audit failure |
+
+A baseline is an explicitly approved configuration state, not a waiver. Methodology
+or evidence-mapping version changes require review and a new baseline.
+
 ## Output Model
 
 Every successful result contains:
@@ -106,8 +166,10 @@ Every successful result contains:
 - detection confidence and evidence;
 - score and summary;
 - profile-scored findings with points and applicability;
+- reporting readiness and cross-origin isolation assurance controls;
 - contextual findings;
 - information-disclosure observations;
+- versioned evidence mappings with rationale and limitations;
 - standards and research citations.
 
 The HTML report is one portable file with no JavaScript, external fonts, analytics,
@@ -118,6 +180,8 @@ focus, non-color status labels, responsive reflow, and print styles.
 
 The implementation is governed by:
 
+- [v0.4 Methodology Specification](docs/V0.4_METHODOLOGY_SPECIFICATION.md)
+- [Continuous Assurance Guide](docs/CONTINUOUS_ASSURANCE.md)
 - [v0.3 Methodology Specification](docs/V0.3_METHODOLOGY_SPECIFICATION.md)
 - [Citation Manifest](docs/CITATION_MANIFEST.md)
 - [Methodology overview](docs/METHODOLOGY.md)
@@ -135,12 +199,15 @@ Run the deterministic suite:
 PYTHONPATH=src python3 -m unittest discover -s tests -v
 ```
 
-The 32-test suite covers API, authenticated application, brochure, hostile evidence,
-manual override, redirect boundaries, method fallback, redaction, HTML escaping,
-and offline report constraints.
+The suite covers API, authenticated application, brochure, hostile evidence,
+reporting endpoint parsing, CSP reporting linkage, cross-origin isolation,
+policy validation, deterministic baselines, regressions, SARIF, JUnit, manual
+override, redirect boundaries, redaction, escaping, and offline report constraints.
 
 ## Release Discipline
 
+- [v0.4.0 release gate](docs/RELEASE_GATE_V0.4.md)
+- [v0.4.0 release notes](docs/releases/v0.4.0.md)
 - [v0.3.0 release gate](docs/RELEASE_GATE_V0.3.md)
 - [v0.3.0 release notes](docs/releases/v0.3.0.md)
 - [v0.2.0 release notes](docs/releases/v0.2.0.md)
@@ -164,4 +231,4 @@ See [DISCLAIMER.md](DISCLAIMER.md).
 - Add optional machine-readable profile-definition export.
 - Add controlled multi-response assessment for route-level profile comparison.
 - Add CSP parsing depth without claiming full browser-policy validation.
-- Add signed release artifacts after the v0.3 release gate is complete.
+- Add signed release artifacts after the v0.4 release gate is complete.

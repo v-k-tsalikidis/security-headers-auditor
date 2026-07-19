@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "security-headers-auditor"
-version = "0.3.0"
-description = "Context-aware HTTP security headers auditor with evidence-based profiles and offline reports."
+version = "0.4.0"
+description = "Context-aware HTTP security headers auditor with policy-as-code assurance and regression-focused CI outputs."
 readme = "README.md"
 requires-python = ">=3.10"
 license = { text = "Apache-2.0" }
@@ -22,3 +22,6 @@ classifiers = [
 
 [project.scripts]
 security-headers-auditor = "security_headers_auditor.cli:main"
+
+[tool.setuptools.package-data]
+security_headers_auditor = ["data/*.json"]

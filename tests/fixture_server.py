@@ -15,6 +15,8 @@ ROUTES = {
     "/app": "app",
     "/brochure": "brochure",
     "/hostile": "hostile",
+    "/assurance-ready": "assurance_ready",
+    "/assurance-broken": "assurance_broken",
 }
 
 
@@ -23,7 +25,7 @@ def load_fixture(name: str) -> dict[str, object]:
 
 
 class FixtureHandler(BaseHTTPRequestHandler):
-    server_version = "SecurityHeadersAuditorFixture/0.3"
+    server_version = "SecurityHeadersAuditorFixture/0.4"
 
     def do_HEAD(self) -> None:  # noqa: N802 - BaseHTTPRequestHandler API
         self._respond(include_body=False)
@@ -38,7 +40,11 @@ class FixtureHandler(BaseHTTPRequestHandler):
         route = urlparse(self.path).path
         fixture_name = ROUTES.get(route)
         if fixture_name is None:
-            self.send_error(404, "Use /api, /app, /brochure, or /hostile")
+            self.send_error(
+                404,
+                "Use /api, /app, /brochure, /hostile, /assurance-ready, "
+                "or /assurance-broken",
+            )
             return
 
         fixture = load_fixture(fixture_name)

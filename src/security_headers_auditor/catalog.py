@@ -90,6 +90,20 @@ CITATIONS: dict[str, Citation] = {
         source_type="web standard",
         url="https://www.w3.org/TR/permissions-policy-1/",
     ),
+    "w3c-reporting": Citation(
+        key="w3c-reporting",
+        title="Reporting API",
+        publisher="W3C",
+        source_type="web standard",
+        url="https://www.w3.org/TR/reporting-1/",
+    ),
+    "w3c-reporting-legacy": Citation(
+        key="w3c-reporting-legacy",
+        title="Reporting API Working Draft, September 2018",
+        publisher="W3C",
+        source_type="historical web specification",
+        url="https://www.w3.org/TR/2018/WD-reporting-1-20180925/",
+    ),
     "whatwg-fetch": Citation(
         key="whatwg-fetch",
         title="Fetch Standard",

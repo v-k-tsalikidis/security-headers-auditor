@@ -8,7 +8,14 @@ from urllib.error import HTTPError
 from urllib.parse import ParseResult, urlparse, urlunparse
 from urllib.request import HTTPRedirectHandler, Request, build_opener
 
+from . import __version__
+from .assurance_controls import (
+    ControlObservation,
+    analyze_cross_origin_isolation,
+    analyze_reporting_readiness,
+)
 from .catalog import DISCLOSURE_HEADERS, RULES, HeaderRule
+from .compliance import EvidenceMapping, mappings_for_control
 from .profiles import (
     Applicability,
     ProfileDecision,
@@ -33,6 +40,7 @@ class HeaderFinding:
     scoring_rationale: str
     citation_keys: tuple[str, ...]
     standards: tuple[str, ...]
+    evidence_mappings: tuple[EvidenceMapping, ...] = ()
     points: float = 0.0
     max_points: int = 0
 
@@ -132,7 +140,7 @@ def fetch_headers(
     normalized = normalize_target(target)
     headers = {
         "User-Agent": (
-            "security-headers-auditor/0.3 "
+            f"security-headers-auditor/{__version__} "
             "(+https://github.com/v-k-tsalikidis/security-headers-auditor)"
         )
     }
@@ -168,6 +176,8 @@ def audit_headers(
     profile: str = "auto",
     include_query: bool = False,
     allow_cross_origin_redirects: bool = False,
+    reporting_expectation: str = "observe",
+    cross_origin_isolation: str = "observe",
 ) -> AuditResult:
     """Audit one response and return profile-aware structured findings."""
     try:
@@ -204,6 +214,22 @@ def audit_headers(
         )
         for rule in RULES
     ]
+    findings.extend(
+        _observation_finding(observation)
+        for observation in analyze_reporting_readiness(
+            normalized_headers,
+            final_url,
+            reporting_expectation,
+        )
+    )
+    findings.append(
+        _observation_finding(
+            analyze_cross_origin_isolation(
+                normalized_headers,
+                cross_origin_isolation,
+            )
+        )
+    )
     findings.extend(_evaluate_disclosure_headers(normalized_headers))
 
     score = _weighted_score(findings)
@@ -390,6 +416,28 @@ def _evaluate_disclosure_headers(headers: Mapping[str, str]) -> list[HeaderFindi
             )
         )
     return findings
+
+
+def _observation_finding(observation: ControlObservation) -> HeaderFinding:
+    mappings = mappings_for_control(observation.key)
+    return HeaderFinding(
+        key=observation.key,
+        name=observation.name,
+        status=observation.status,
+        severity=observation.severity,
+        category="assurance",
+        applicability=observation.applicability,
+        value=observation.value,
+        note=observation.note,
+        recommendation=observation.recommendation,
+        scoring_rationale=(
+            "Assurance controls are policy-evaluated separately and never alter "
+            "the response-profile score."
+        ),
+        citation_keys=observation.citation_keys,
+        standards=tuple(mapping.label for mapping in mappings),
+        evidence_mappings=mappings,
+    )
 
 
 def _evaluate_hsts(
@@ -638,6 +686,7 @@ def _finding(
     note: str,
     credit_ratio: float,
 ) -> HeaderFinding:
+    mappings = mappings_for_control(rule.key)
     return HeaderFinding(
         key=rule.key,
         name=rule.name,
@@ -650,7 +699,8 @@ def _finding(
         recommendation=rule.recommendation,
         scoring_rationale=policy.rationale,
         citation_keys=rule.citation_keys,
-        standards=rule.standards,
+        standards=tuple(mapping.label for mapping in mappings),
+        evidence_mappings=mappings,
         points=round(policy.weight * credit_ratio, 2),
         max_points=policy.weight,
     )
