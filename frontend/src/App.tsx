@@ -43,6 +43,7 @@ import type {
   TargetSummary,
   ViewName,
   WorkspaceDocument,
+  WorkspaceImportPreview,
   WorkspaceRecord,
 } from "./types";
 
@@ -67,6 +68,8 @@ const EMPTY_TARGET: TargetDraft = {
   reporting: "observe",
   isolation: "not_applicable",
 };
+
+const MAX_WORKSPACE_IMPORT_BYTES = 2 * 1024 * 1024;
 
 const NAVIGATION: {
   id: ViewName;
@@ -99,6 +102,9 @@ export function App({ sessionToken }: AppProps) {
   const [showTargetForm, setShowTargetForm] = useState(false);
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [targetToEdit, setTargetToEdit] = useState<PolicyTarget | null>(null);
+  const [importPreview, setImportPreview] = useState<WorkspaceImportPreview | null>(
+    null,
+  );
   const importInput = useRef<HTMLInputElement>(null);
 
   const loadWorkspace = useCallback(
@@ -185,6 +191,9 @@ export function App({ sessionToken }: AppProps) {
       nextDocument.policy.targets[existingIndex] = nextTarget;
       if (targetToEdit?.id !== nextTarget.id) {
         delete nextDocument.latest_summaries[targetToEdit!.id];
+        nextDocument.disabled_target_ids = nextDocument.disabled_target_ids.map(
+          (id) => (id === targetToEdit!.id ? nextTarget.id : id),
+        );
       }
     } else {
       nextDocument.policy.targets.push(nextTarget);
@@ -197,6 +206,7 @@ export function App({ sessionToken }: AppProps) {
       });
       setRecord(saved);
       setSelectedTargetId(nextTarget.id);
+      setRun(null);
       setShowTargetForm(false);
       setTargetToEdit(null);
     } catch (caught) {
@@ -210,6 +220,9 @@ export function App({ sessionToken }: AppProps) {
     nextDocument.policy.targets = nextDocument.policy.targets.filter(
       (target) => target.id !== targetId,
     );
+    nextDocument.disabled_target_ids = nextDocument.disabled_target_ids.filter(
+      (id) => id !== targetId,
+    );
     delete nextDocument.latest_summaries[targetId];
     nextDocument.updated_at = now();
     try {
@@ -219,6 +232,31 @@ export function App({ sessionToken }: AppProps) {
       });
       setRecord(saved);
       setSelectedTargetId(saved.document.policy.targets[0]?.id ?? null);
+      setRun(null);
+    } catch (caught) {
+      setError(messageFor(caught));
+    }
+  }
+
+  async function toggleTargetDisabled(targetId: string) {
+    if (!api || !record) return;
+    const nextDocument = structuredClone(record.document);
+    const disabled = new Set(nextDocument.disabled_target_ids);
+    if (disabled.has(targetId)) {
+      disabled.delete(targetId);
+    } else {
+      disabled.add(targetId);
+      delete nextDocument.latest_summaries[targetId];
+    }
+    nextDocument.disabled_target_ids = [...disabled].sort();
+    nextDocument.updated_at = now();
+    try {
+      const saved = await api.saveWorkspace({
+        revision: record.revision,
+        document: nextDocument,
+      });
+      setRecord(saved);
+      setRun(null);
     } catch (caught) {
       setError(messageFor(caught));
     }
@@ -311,28 +349,38 @@ export function App({ sessionToken }: AppProps) {
   }
 
   async function importWorkspace(event: ChangeEvent<HTMLInputElement>) {
-    if (!api || !record || !event.target.files?.[0]) return;
+    if (!api || !event.target.files?.[0]) return;
+    const file = event.target.files[0];
     setError(null);
     try {
-      const imported = JSON.parse(
-        await event.target.files[0].text(),
-      ) as WorkspaceDocument;
-      let saved: WorkspaceRecord;
-      if (imported.workspace_id === record.document.workspace_id) {
-        saved = await api.saveWorkspace({
-          revision: record.revision,
-          document: imported,
-        });
-      } else {
-        saved = await api.createWorkspace(imported);
+      if (file.size > MAX_WORKSPACE_IMPORT_BYTES) {
+        throw new Error(
+          `Workspace imports must not exceed ${MAX_WORKSPACE_IMPORT_BYTES / 1024 / 1024} MiB.`,
+        );
       }
-      setRecord(saved);
-      setSelectedTargetId(saved.document.policy.targets[0]?.id ?? null);
-      setRun(null);
+      const imported = JSON.parse(await file.text()) as WorkspaceDocument;
+      const preview = await api.previewWorkspaceImport(imported);
+      setImportPreview(preview);
     } catch (caught) {
       setError(messageFor(caught));
     } finally {
       event.target.value = "";
+    }
+  }
+
+  async function commitWorkspaceImport() {
+    if (!api || !importPreview) return;
+    setError(null);
+    try {
+      const saved = await api.commitWorkspaceImport(importPreview);
+      setRecord(saved);
+      setSelectedTargetId(saved.document.policy.targets[0]?.id ?? null);
+      setRun(null);
+      setShowCreateForm(false);
+      setImportPreview(null);
+      setBootstrap(await api.bootstrap());
+    } catch (caught) {
+      setError(messageFor(caught));
     }
   }
 
@@ -420,6 +468,7 @@ export function App({ sessionToken }: AppProps) {
               setShowTargetForm(true);
             }}
             onRemove={(targetId) => void removeTarget(targetId)}
+            onToggleDisabled={(targetId) => void toggleTargetDisabled(targetId)}
             onRun={(targetId) => void executeAudit(targetId)}
             onRunAll={() => void executeAudit()}
           />
@@ -430,6 +479,9 @@ export function App({ sessionToken }: AppProps) {
             summary={selectedSummary}
             assessment={selectedAssessment}
             running={runningTarget === selectedTargetId}
+            disabled={Boolean(
+              selectedTargetId && record.document.disabled_target_ids.includes(selectedTargetId),
+            )}
             onRun={() =>
               selectedTargetId && void executeAudit(selectedTargetId)
             }
@@ -491,6 +543,13 @@ export function App({ sessionToken }: AppProps) {
           approving={baselineBusy}
           onCancel={() => setBaselineCandidate(null)}
           onApprove={() => void approveBaseline()}
+        />
+      )}
+      {importPreview && (
+        <ImportPreviewDialog
+          preview={importPreview}
+          onCancel={() => setImportPreview(null)}
+          onCommit={() => void commitWorkspaceImport()}
         />
       )}
     </div>
@@ -574,6 +633,7 @@ function TargetsView({
   onAdd,
   onEdit,
   onRemove,
+  onToggleDisabled,
   onRun,
   onRunAll,
 }: {
@@ -584,9 +644,14 @@ function TargetsView({
   onAdd: () => void;
   onEdit: (target: PolicyTarget) => void;
   onRemove: (id: string) => void;
+  onToggleDisabled: (id: string) => void;
   onRun: (id: string) => void;
   onRunAll: () => void;
 }) {
+  const disabledTargetIds = new Set(record.document.disabled_target_ids);
+  const enabledTargetCount = record.document.policy.targets.filter(
+    (target) => !disabledTargetIds.has(target.id),
+  ).length;
   const selected =
     record.document.policy.targets.find(
       (target) => target.id === selectedTargetId,
@@ -622,7 +687,7 @@ function TargetsView({
               type="button"
               className="secondary-button"
               onClick={onRunAll}
-              disabled={runningTarget !== null}
+              disabled={runningTarget !== null || enabledTargetCount === 0}
             >
               {runningTarget === "all" ? (
                 <LoaderCircle className="spin" aria-hidden="true" />
@@ -654,6 +719,7 @@ function TargetsView({
                 const targetSummary =
                   record.document.latest_summaries[target.id];
                 const isSelected = target.id === selected?.id;
+                const isDisabled = disabledTargetIds.has(target.id);
                 return (
                   <tr
                     key={target.id}
@@ -674,12 +740,16 @@ function TargetsView({
                       <span className="profile-tag">{target.profile}</span>
                     </td>
                     <td>
-                      <ScoreCell summary={targetSummary} />
+                      <ScoreCell summary={isDisabled ? undefined : targetSummary} />
                     </td>
                     <td>≥ {target.minimum_score}</td>
-                    <td>{relativeTime(targetSummary?.completed_at)}</td>
+                    <td>{isDisabled ? "Disabled" : relativeTime(targetSummary?.completed_at)}</td>
                     <td>
-                      <StatusBadge outcome={targetSummary?.outcome} />
+                      {isDisabled ? (
+                        <span className="status-badge status-none">Disabled</span>
+                      ) : (
+                        <StatusBadge outcome={targetSummary?.outcome} />
+                      )}
                     </td>
                   </tr>
                 );
@@ -692,9 +762,11 @@ function TargetsView({
         target={selected}
         summary={summary}
         running={runningTarget === selected?.id}
+        disabled={Boolean(selected && disabledTargetIds.has(selected.id))}
         onlyTarget={record.document.policy.targets.length === 1}
         onEdit={() => selected && onEdit(selected)}
         onRemove={() => selected && onRemove(selected.id)}
+        onToggleDisabled={() => selected && onToggleDisabled(selected.id)}
         onRun={() => selected && onRun(selected.id)}
       />
     </div>
@@ -705,17 +777,21 @@ function TargetInspector({
   target,
   summary,
   running,
+  disabled,
   onlyTarget,
   onEdit,
   onRemove,
+  onToggleDisabled,
   onRun,
 }: {
   target?: PolicyTarget;
   summary?: TargetSummary;
   running: boolean;
+  disabled: boolean;
   onlyTarget: boolean;
   onEdit: () => void;
   onRemove: () => void;
+  onToggleDisabled: () => void;
   onRun: () => void;
 }) {
   if (!target) return null;
@@ -735,14 +811,14 @@ function TargetInspector({
           type="button"
           className="primary-button"
           onClick={onRun}
-          disabled={running}
+          disabled={running || disabled}
         >
           {running ? (
             <LoaderCircle className="spin" aria-hidden="true" />
           ) : (
             <Play aria-hidden="true" />
           )}
-          Run audit
+          {disabled ? "Target disabled" : "Run audit"}
         </button>
       </div>
       <dl className="target-facts">
@@ -813,6 +889,9 @@ function TargetInspector({
         <button type="button" onClick={onEdit}>
           Edit target
         </button>
+        <button type="button" onClick={onToggleDisabled}>
+          {disabled ? "Enable target" : "Disable target"}
+        </button>
         <button
           type="button"
           className="danger-link"
@@ -833,12 +912,14 @@ function AssessmentView({
   summary,
   assessment,
   running,
+  disabled,
   onRun,
 }: {
   target: PolicyTarget | null;
   summary: TargetSummary | null;
   assessment: AssurancePayload["assessments"][number] | null;
   running: boolean;
+  disabled: boolean;
   onRun: () => void;
 }) {
   if (!target) return <EmptyView title="No target selected" />;
@@ -854,7 +935,7 @@ function AssessmentView({
         <button
           type="button"
           className="primary-button"
-          disabled={running}
+          disabled={running || disabled}
           onClick={onRun}
         >
           {running ? (
@@ -862,7 +943,7 @@ function AssessmentView({
           ) : (
             <RotateCcw aria-hidden="true" />
           )}
-          Run audit
+          {disabled ? "Target disabled" : "Run audit"}
         </button>
       </div>
       <div className="assessment-overview">
@@ -1392,6 +1473,92 @@ function BaselineReviewDialog({
   );
 }
 
+function ImportPreviewDialog({
+  preview,
+  onCancel,
+  onCommit,
+}: {
+  preview: WorkspaceImportPreview;
+  onCancel: () => void;
+  onCommit: () => void;
+}) {
+  const [confirmed, setConfirmed] = useState(false);
+  const labelId = useMemo(() => crypto.randomUUID(), []);
+  const existingWorkspace = preview.existing_workspace;
+  const replacing = existingWorkspace !== null;
+  return (
+    <div className="dialog-backdrop">
+      <section
+        className="dialog baseline-dialog"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={labelId}
+      >
+        <div className="dialog-heading">
+          <div>
+            <p className="eyebrow">Explicit import approval required</p>
+            <h2 id={labelId}>Review workspace import</h2>
+          </div>
+          <button
+            type="button"
+            className="icon-button"
+            aria-label="Close import review"
+            title="Close"
+            onClick={onCancel}
+          >
+            <X aria-hidden="true" />
+          </button>
+        </div>
+        <div className="baseline-review-summary">
+          <div>
+            <span>Workspace</span>
+            <strong>{preview.document.name}</strong>
+          </div>
+          <div>
+            <span>Authorized targets</span>
+            <strong>{preview.target_count}</strong>
+          </div>
+          <div>
+            <span>Local state</span>
+            <strong>{replacing ? "Will replace matching workspace" : "Will create workspace"}</strong>
+          </div>
+        </div>
+        <p className="dialog-copy">
+          Imported targets are stored only. No audit runs until you explicitly select Run.
+          {preview.applied_migrations.length
+            ? ` Applied migrations: ${preview.applied_migrations.join(", ")}.`
+            : ""}
+        </p>
+        {existingWorkspace && (
+          <p className="dialog-copy">
+            This will replace the local workspace named {existingWorkspace.name}{" "}
+            at revision {existingWorkspace.revision}.
+          </p>
+        )}
+        <label className="approval-check">
+          <input
+            type="checkbox"
+            checked={confirmed}
+            onChange={(event) => setConfirmed(event.target.checked)}
+          />
+          <span>I reviewed this workspace and approve this import.</span>
+        </label>
+        <div className="dialog-actions">
+          <button type="button" onClick={onCancel}>Cancel</button>
+          <button
+            type="button"
+            className="primary-button"
+            onClick={onCommit}
+            disabled={!confirmed}
+          >
+            {replacing ? "Replace workspace" : "Import workspace"}
+          </button>
+        </div>
+      </section>
+    </div>
+  );
+}
+
 function TargetDialog({
   title,
   initial,
@@ -1630,17 +1797,18 @@ function newWorkspaceDocument(
     schema_version: bootstrap.workspace_schema_version,
     workspace_id: crypto.randomUUID(),
     name: workspaceName,
-    policy: {
+      policy: {
       schema_version: "1.0",
-      methodology_version: bootstrap.tool_version,
+        methodology_version: bootstrap.methodology_version,
       name: `${slug(workspaceName)}-assurance`,
       defaults: {
         fail_on_severity: ["high"],
         allow_auto_profile: false,
       },
       targets: [target],
-    },
-    approved_baseline: null,
+      },
+      disabled_target_ids: [],
+      approved_baseline: null,
     latest_summaries: {},
     created_at: timestamp,
     updated_at: timestamp,

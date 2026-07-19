@@ -20,8 +20,8 @@ function record(revision = 0, baseline: BaselineCandidate | null = null): Worksp
       workspace_id: workspaceId,
       name: "Production Web Estate",
       policy: {
-        schema_version: "1.0",
-        methodology_version: "0.5.0",
+        schema_version: "1.1",
+        methodology_version: "0.4.0",
         name: "production-assurance",
         defaults: {
           fail_on_severity: ["high"],
@@ -43,6 +43,7 @@ function record(revision = 0, baseline: BaselineCandidate | null = null): Worksp
           },
         ],
       },
+      disabled_target_ids: [],
       approved_baseline: baseline,
       latest_summaries: {},
       created_at: "2026-07-19T10:00:00+00:00",
@@ -53,14 +54,15 @@ function record(revision = 0, baseline: BaselineCandidate | null = null): Worksp
 
 const bootstrap: Bootstrap = {
   tool_version: "0.5.0",
-  workspace_schema_version: "1.0",
+  methodology_version: "0.4.0",
+  workspace_schema_version: "1.1",
   mapping_set_version: "2026.07.1",
   allow_private_targets: false,
   workspaces: [
     {
       workspace_id: workspaceId,
       revision: 0,
-      schema_version: "1.0",
+      schema_version: "1.1",
       name: "Production Web Estate",
       updated_at: "2026-07-19T10:00:00+00:00",
     },
@@ -176,5 +178,72 @@ describe("workspace baseline approval", () => {
         String(path).endsWith("/approved-baseline"),
       ),
     ).toBe(true);
+  });
+
+  it("previews a first workspace import and does not run it automatically", async () => {
+    let bootstrapRequests = 0;
+    const imported = record();
+    const emptyBootstrap: Bootstrap = { ...bootstrap, workspaces: [] };
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const path = String(input);
+      let payload: unknown;
+      if (path === "/api/v1/bootstrap") {
+        bootstrapRequests += 1;
+        payload = bootstrapRequests === 1 ? emptyBootstrap : bootstrap;
+      } else if (path === "/api/v1/workspace-imports/preview") {
+        payload = {
+          document: imported.document,
+          applied_migrations: [],
+          target_count: 1,
+          existing_workspace: null,
+          expected_revision: null,
+        };
+      } else if (path === "/api/v1/workspace-imports/commit") {
+        payload = imported;
+      } else {
+        return new Response(JSON.stringify({ error: "Not found" }), {
+          status: 404,
+        });
+      }
+      return new Response(JSON.stringify(payload), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    const user = userEvent.setup();
+
+    render(<App sessionToken="test-token" />);
+    await screen.findByRole("heading", { name: "Create workspace" });
+    await user.click(screen.getAllByRole("button", { name: "Import" })[0]);
+    const input = document.querySelector<HTMLInputElement>('input[type="file"]');
+    expect(input).not.toBeNull();
+    const file = new File([JSON.stringify(imported.document)], "workspace.json", {
+      type: "application/json",
+    });
+    Object.defineProperty(file, "text", {
+      value: async () => JSON.stringify(imported.document),
+    });
+    await user.upload(input!, file);
+
+    await screen.findByRole("heading", { name: "Review workspace import" });
+    const commit = screen.getByRole("button", { name: "Import workspace" });
+    expect(commit).toBeDisabled();
+    await user.click(
+      screen.getByRole("checkbox", {
+        name: "I reviewed this workspace and approve this import.",
+      }),
+    );
+    await user.click(commit);
+
+    await waitFor(() =>
+      expect(
+        screen.queryByRole("heading", { name: "Review workspace import" }),
+      ).not.toBeInTheDocument(),
+    );
+    expect(screen.getByText("Production Web Estate")).toBeInTheDocument();
+    expect(
+      fetchMock.mock.calls.some(([path]) => String(path).endsWith("/run")),
+    ).toBe(false);
   });
 });

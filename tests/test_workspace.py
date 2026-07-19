@@ -42,7 +42,7 @@ FIXTURES = Path(__file__).parent / "fixtures"
 
 def workspace_payload() -> dict[str, object]:
     return {
-        "schema_version": "1.0",
+        "schema_version": "1.1",
         "workspace_id": "5f0f84f3-1775-4de5-b2c8-3768c9d03f45",
         "name": "Fixture workspace",
         "policy": {
@@ -69,6 +69,7 @@ def workspace_payload() -> dict[str, object]:
                 }
             ],
         },
+        "disabled_target_ids": [],
         "approved_baseline": None,
         "latest_summaries": {},
         "created_at": "2026-07-19T10:00:00+00:00",
@@ -113,6 +114,15 @@ class WorkspaceSchemaTests(unittest.TestCase):
             WorkspaceValidationError,
             "unknown fields: raw_headers",
         ):
+            validate_workspace(payload)
+
+    def test_disabled_target_ids_must_reference_unique_policy_targets(self):
+        payload = workspace_payload()
+        payload["disabled_target_ids"] = ["unknown", "unknown"]
+        with self.assertRaisesRegex(WorkspaceValidationError, "duplicates"):
+            validate_workspace(payload)
+        payload["disabled_target_ids"] = ["unknown"]
+        with self.assertRaisesRegex(WorkspaceValidationError, "unknown targets"):
             validate_workspace(payload)
 
     def test_summary_cannot_persist_raw_values(self):
@@ -160,6 +170,17 @@ class WorkspaceSchemaTests(unittest.TestCase):
         parsed, applied = parse_workspace_bytes(raw)
         self.assertEqual(parsed, workspace_payload())
         self.assertEqual(applied, ())
+
+    def test_v1_0_workspace_migrates_disabled_target_state_deterministically(self):
+        legacy = workspace_payload()
+        legacy["schema_version"] = "1.0"
+        del legacy["disabled_target_ids"]
+
+        migrated, applied = parse_workspace_bytes(json.dumps(legacy).encode())
+
+        self.assertEqual(migrated["schema_version"], "1.1")
+        self.assertEqual(migrated["disabled_target_ids"], [])
+        self.assertEqual(applied, ("workspace-1.0-to-1.1",))
 
     def test_unknown_future_schema_is_rejected_without_mutation(self):
         payload = workspace_payload()
@@ -313,6 +334,104 @@ class WorkspaceServiceTests(unittest.TestCase):
     def test_report_export_requires_a_current_in_memory_run(self):
         with self.assertRaisesRegex(ValueError, "run assurance first"):
             self.service.export_current_report(self.workspace_id, "html")
+
+    def test_save_clears_summary_when_target_configuration_changes(self):
+        with patch(
+            "security_headers_auditor.workspace.service.audit_headers",
+            audit_from_fixture("assurance_ready"),
+        ):
+            self.service.run(self.workspace_id, expected_revision=0)
+        updated = self.repository.get(self.workspace_id).document
+        self.assertIn("public-site", updated["latest_summaries"])
+        updated["policy"]["targets"][0]["url"] = "https://replacement.example.test/"
+        updated["updated_at"] = "2026-07-19T11:00:00+00:00"
+
+        saved = self.service.save(self.workspace_id, updated, expected_revision=1)
+
+        self.assertEqual(saved["revision"], 2)
+        self.assertEqual(saved["document"]["latest_summaries"], {})
+
+    def test_disabled_targets_are_not_run_or_baselined(self):
+        document = self.repository.get(self.workspace_id).document
+        document["disabled_target_ids"] = ["public-site"]
+        document["updated_at"] = "2026-07-19T11:00:00+00:00"
+        saved = self.service.save(self.workspace_id, document, expected_revision=0)
+
+        with self.assertRaisesRegex(ValueError, "Enable at least one"):
+            self.service.run(self.workspace_id, expected_revision=saved["revision"])
+        with self.assertRaisesRegex(ValueError, "is disabled"):
+            self.service.run(
+                self.workspace_id,
+                expected_revision=saved["revision"],
+                target_id="public-site",
+            )
+
+    def test_assurance_and_baseline_ignore_disabled_target(self):
+        document = self.repository.get(self.workspace_id).document
+        second = deepcopy(document["policy"]["targets"][0])
+        second["id"] = "secondary-site"
+        second["url"] = "https://secondary.example.test/"
+        document["policy"]["targets"].append(second)
+        document["disabled_target_ids"] = ["public-site"]
+        document["updated_at"] = "2026-07-19T11:00:00+00:00"
+        saved = self.service.save(self.workspace_id, document, expected_revision=0)
+
+        with patch(
+            "security_headers_auditor.workspace.service.audit_headers",
+            audit_from_fixture("assurance_ready"),
+        ):
+            candidate = self.service.create_candidate_baseline(
+                self.workspace_id,
+                expected_revision=saved["revision"],
+            )
+
+        self.assertEqual(
+            tuple(candidate["candidate"]["targets"]),
+            ("secondary-site",),
+        )
+
+    def test_import_preview_is_non_mutating_and_commit_is_explicit(self):
+        imported = workspace_payload()
+        imported["workspace_id"] = "8f3fbb2a-7984-4d32-9b93-507d663cb824"
+        imported["name"] = "Imported workspace"
+
+        preview = self.service.preview_import(imported)
+
+        self.assertEqual(preview["target_count"], 1)
+        self.assertIsNone(preview["existing_workspace"])
+        self.assertIsNone(preview["expected_revision"])
+        with self.assertRaises(WorkspaceNotFoundError):
+            self.repository.get(imported["workspace_id"])
+
+        committed = self.service.commit_import(
+            preview["document"],
+            expected_revision=preview["expected_revision"],
+        )
+
+        self.assertEqual(committed["revision"], 0)
+        self.assertEqual(committed["document"]["latest_summaries"], {})
+        self.assertNotIn(imported["workspace_id"], self.service._runs)
+
+    def test_import_replacement_requires_previewed_revision(self):
+        imported = workspace_payload()
+        imported["name"] = "Replacement workspace"
+        imported["updated_at"] = "2026-07-19T11:00:00+00:00"
+
+        preview = self.service.preview_import(imported)
+        self.assertEqual(preview["expected_revision"], 0)
+        with self.assertRaisesRegex(ValueError, "provide its revision"):
+            self.service.commit_import(imported, expected_revision=None)
+        self.assertEqual(
+            self.repository.get(self.workspace_id).document["name"],
+            "Fixture workspace",
+        )
+
+        committed = self.service.commit_import(
+            preview["document"],
+            expected_revision=preview["expected_revision"],
+        )
+        self.assertEqual(committed["revision"], 1)
+        self.assertEqual(committed["document"]["name"], "Replacement workspace")
 
     def test_candidate_requires_pass_and_approval_is_separate_revision(self):
         with patch(
@@ -476,6 +595,13 @@ class WorkspaceServerIntegrationTests(unittest.TestCase):
             response.getheader("Content-Security-Policy"),
         )
 
+    def test_bootstrap_exposes_tool_and_methodology_versions_separately(self):
+        response, payload = self.request("GET", "/api/v1/bootstrap")
+        self.assertEqual(response.status, 200)
+        bootstrap = json.loads(payload)
+        self.assertEqual(bootstrap["tool_version"], "0.5.0")
+        self.assertEqual(bootstrap["methodology_version"], METHODOLOGY_VERSION)
+
     def test_tokenless_and_cross_origin_api_requests_fail(self):
         response, _ = self.request(
             "GET",
@@ -509,6 +635,30 @@ class WorkspaceServerIntegrationTests(unittest.TestCase):
             json.loads(payload)["document"]["name"],
             "Fixture workspace",
         )
+
+    def test_first_workspace_import_requires_preview_and_never_runs(self):
+        response, payload = self.request(
+            "POST",
+            "/api/v1/workspace-imports/preview",
+            {"document": workspace_payload()},
+        )
+        self.assertEqual(response.status, 200)
+        preview = json.loads(payload)
+        self.assertIsNone(preview["existing_workspace"])
+        self.assertIsNone(preview["expected_revision"])
+
+        response, payload = self.request(
+            "POST",
+            "/api/v1/workspace-imports/commit",
+            {
+                "document": preview["document"],
+                "expected_revision": preview["expected_revision"],
+            },
+        )
+        self.assertEqual(response.status, 200)
+        committed = json.loads(payload)
+        self.assertEqual(committed["revision"], 0)
+        self.assertEqual(committed["document"]["latest_summaries"], {})
 
 
 if __name__ == "__main__":

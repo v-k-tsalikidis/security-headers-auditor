@@ -7,6 +7,7 @@ export type Expectation =
 
 export interface Bootstrap {
   tool_version: string;
+  methodology_version: string;
   workspace_schema_version: string;
   mapping_set_version: string;
   allow_private_targets: boolean;
@@ -49,6 +50,7 @@ export interface WorkspaceDocument {
     };
     targets: PolicyTarget[];
   };
+  disabled_target_ids: string[];
   approved_baseline: BaselineCandidate | null;
   latest_summaries: Record<string, TargetSummary>;
   created_at: string;
@@ -58,6 +60,19 @@ export interface WorkspaceDocument {
 export interface WorkspaceRecord {
   revision: number;
   document: WorkspaceDocument;
+}
+
+export interface WorkspaceImportPreview {
+  document: WorkspaceDocument;
+  applied_migrations: string[];
+  target_count: number;
+  existing_workspace: {
+    workspace_id: string;
+    name: string;
+    revision: number;
+    updated_at: string;
+  } | null;
+  expected_revision: number | null;
 }
 
 export interface TargetSummary {

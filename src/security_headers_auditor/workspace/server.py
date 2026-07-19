@@ -189,6 +189,17 @@ def _handler_factory(
                         workspace_id,
                         tail[3],
                     )
+            if method == "POST" and tail == ["workspace-imports", "preview"]:
+                payload = _require_object(body)
+                return HTTPStatus.OK, service.preview_import(
+                    _require_object(payload.get("document"))
+                )
+            if method == "POST" and tail == ["workspace-imports", "commit"]:
+                payload = _require_object(body)
+                return HTTPStatus.OK, service.commit_import(
+                    _require_object(payload.get("document")),
+                    _require_optional_revision(payload),
+                )
             raise WorkspaceNotFoundError("Unknown API route.")
 
         def _serve_static(self, path: str) -> None:
@@ -296,5 +307,16 @@ def _require_revision(payload: dict[str, Any]) -> int:
     if isinstance(value, bool) or not isinstance(value, int) or value < 0:
         raise WorkspaceRequestError(
             "revision must be a non-negative integer."
+        )
+    return value
+
+
+def _require_optional_revision(payload: dict[str, Any]) -> int | None:
+    value = payload.get("expected_revision")
+    if value is None:
+        return None
+    if isinstance(value, bool) or not isinstance(value, int) or value < 0:
+        raise WorkspaceRequestError(
+            "expected_revision must be a non-negative integer or null."
         )
     return value

@@ -5,6 +5,7 @@ import type {
   Bootstrap,
   ReportExport,
   ReportFormat,
+  WorkspaceImportPreview,
   RunResponse,
   WorkspaceDocument,
   WorkspaceRecord,
@@ -34,6 +35,27 @@ export class WorkspaceApi {
     return this.request("/api/v1/workspaces", {
       method: "POST",
       body: JSON.stringify(document),
+    });
+  }
+
+  previewWorkspaceImport(
+    document: WorkspaceDocument,
+  ): Promise<WorkspaceImportPreview> {
+    return this.request("/api/v1/workspace-imports/preview", {
+      method: "POST",
+      body: JSON.stringify({ document }),
+    });
+  }
+
+  commitWorkspaceImport(
+    preview: WorkspaceImportPreview,
+  ): Promise<WorkspaceRecord> {
+    return this.request("/api/v1/workspace-imports/commit", {
+      method: "POST",
+      body: JSON.stringify({
+        document: preview.document,
+        expected_revision: preview.expected_revision,
+      }),
     });
   }
 

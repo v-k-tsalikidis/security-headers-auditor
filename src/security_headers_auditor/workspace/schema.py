@@ -33,6 +33,7 @@ ROOT_FIELDS = {
     "workspace_id",
     "name",
     "policy",
+    "disabled_target_ids",
     "approved_baseline",
     "latest_summaries",
     "created_at",
@@ -115,6 +116,27 @@ def validate_workspace(payload: dict[str, Any]) -> dict[str, Any]:
             f"Workspace policy exceeds the {MAX_TARGETS}-target limit."
         )
 
+    disabled_target_ids = payload["disabled_target_ids"]
+    if not isinstance(disabled_target_ids, list):
+        raise WorkspaceValidationError("disabled_target_ids must be a JSON array.")
+    if any(not isinstance(target_id, str) or not target_id for target_id in disabled_target_ids):
+        raise WorkspaceValidationError(
+            "disabled_target_ids must contain non-empty target id strings."
+        )
+    if len(set(disabled_target_ids)) != len(disabled_target_ids):
+        raise WorkspaceValidationError("disabled_target_ids must not contain duplicates.")
+    if len(disabled_target_ids) > len(policy.targets):
+        raise WorkspaceValidationError(
+            "disabled_target_ids cannot exceed the workspace target count."
+        )
+    target_ids = {target.id for target in policy.targets}
+    unknown_disabled = set(disabled_target_ids) - target_ids
+    if unknown_disabled:
+        raise WorkspaceValidationError(
+            "disabled_target_ids reference unknown targets: "
+            + ", ".join(sorted(unknown_disabled))
+        )
+
     baseline = payload["approved_baseline"]
     if baseline is not None:
         try:
@@ -137,7 +159,6 @@ def validate_workspace(payload: dict[str, Any]) -> dict[str, Any]:
         raise WorkspaceValidationError(
             f"Workspace exceeds the {MAX_SUMMARIES}-summary limit."
         )
-    target_ids = {target.id for target in policy.targets}
     unknown_summaries = set(summaries) - target_ids
     if unknown_summaries:
         raise WorkspaceValidationError(

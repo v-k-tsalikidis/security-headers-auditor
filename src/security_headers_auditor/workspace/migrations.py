@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from typing import Any, Callable
 
 
-CURRENT_WORKSPACE_SCHEMA_VERSION = "1.0"
+CURRENT_WORKSPACE_SCHEMA_VERSION = "1.1"
 
 
 class WorkspaceMigrationError(ValueError):
@@ -22,9 +22,20 @@ class MigrationResult:
 
 MigrationFunction = Callable[[dict[str, Any]], dict[str, Any]]
 
-# Future migrations are registered by exact source version. Keeping this explicit
+
+def _migrate_1_0_to_1_1(payload: dict[str, Any]) -> dict[str, Any]:
+    """Add workspace-only disabled-target state without changing policy semantics."""
+    migrated = deepcopy(payload)
+    migrated["schema_version"] = "1.1"
+    migrated["disabled_target_ids"] = []
+    return migrated
+
+
+# Migrations are registered by exact source version. Keeping this explicit
 # prevents best-effort field copying or silent interpretation of unknown schemas.
-MIGRATIONS: dict[str, tuple[str, str, MigrationFunction]] = {}
+MIGRATIONS: dict[str, tuple[str, str, MigrationFunction]] = {
+    "1.0": ("workspace-1.0-to-1.1", "1.1", _migrate_1_0_to_1_1),
+}
 
 
 def migrate_workspace(payload: dict[str, Any]) -> MigrationResult:

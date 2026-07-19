@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { WorkspaceApi, consumeSessionToken } from "./api";
+import type { WorkspaceDocument } from "./types";
 
 afterEach(() => {
   vi.unstubAllGlobals();
@@ -69,6 +70,27 @@ describe("WorkspaceApi", () => {
       expect.objectContaining({
         message: "Workspace revision conflict.",
         status: 409,
+      }),
+    );
+  });
+
+  it("uses the explicit preview endpoint before committing an import", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify({}), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    const document = {} as WorkspaceDocument;
+
+    await new WorkspaceApi("session-secret").previewWorkspaceImport(document);
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/api/v1/workspace-imports/preview",
+      expect.objectContaining({
+        method: "POST",
+        body: JSON.stringify({ document }),
       }),
     );
   });
