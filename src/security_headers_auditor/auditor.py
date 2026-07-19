@@ -2,11 +2,21 @@
 
 from __future__ import annotations
 
+import ipaddress
+import socket
 from dataclasses import dataclass
+from http.client import HTTPConnection, HTTPSConnection
 from typing import Mapping
 from urllib.error import HTTPError
 from urllib.parse import ParseResult, urlparse, urlunparse
-from urllib.request import HTTPRedirectHandler, Request, build_opener
+from urllib.request import (
+    HTTPHandler,
+    HTTPRedirectHandler,
+    HTTPSHandler,
+    ProxyHandler,
+    Request,
+    build_opener,
+)
 
 from . import __version__
 from .assurance_controls import (
@@ -73,11 +83,77 @@ class RedirectBoundaryError(RuntimeError):
     """Raised when a redirect would leave the operator-supplied origin."""
 
 
+class TargetAddressBoundaryError(RuntimeError):
+    """Raised when a target resolves outside the permitted address scope."""
+
+
+def _create_public_connection(
+    address: tuple[str, int],
+    timeout: object = socket._GLOBAL_DEFAULT_TIMEOUT,
+    source_address: tuple[str, int] | None = None,
+) -> socket.socket:
+    """Connect only to an address validated immediately before TCP connect."""
+    hostname, port = address
+    resolved = _resolve_public_addresses(hostname, port)
+    last_error: OSError | None = None
+    for family, socktype, protocol, _, sockaddr in resolved:
+        candidate: socket.socket | None = None
+        try:
+            candidate = socket.socket(family, socktype, protocol)
+            if timeout is not socket._GLOBAL_DEFAULT_TIMEOUT:
+                candidate.settimeout(timeout)
+            if source_address:
+                candidate.bind(source_address)
+            candidate.connect(sockaddr)
+            return candidate
+        except OSError as exc:
+            last_error = exc
+            if candidate is not None:
+                candidate.close()
+    if last_error is not None:
+        raise last_error
+    raise TargetAddressBoundaryError(
+        f"Target hostname {hostname!r} resolved to no connectable addresses."
+    )
+
+
+class _PublicAddressHTTPConnection(HTTPConnection):
+    def __init__(self, *args: object, **kwargs: object) -> None:
+        super().__init__(*args, **kwargs)
+        self._create_connection = _create_public_connection
+
+
+class _PublicAddressHTTPSConnection(HTTPSConnection):
+    def __init__(self, *args: object, **kwargs: object) -> None:
+        super().__init__(*args, **kwargs)
+        self._create_connection = _create_public_connection
+
+
+class _PublicAddressHTTPHandler(HTTPHandler):
+    def http_open(self, request: Request):
+        return self.do_open(_PublicAddressHTTPConnection, request)
+
+
+class _PublicAddressHTTPSHandler(HTTPSHandler):
+    def https_open(self, request: Request):
+        return self.do_open(
+            _PublicAddressHTTPSConnection,
+            request,
+            context=self._context,
+        )
+
+
 class _ScopeRedirectHandler(HTTPRedirectHandler):
-    def __init__(self, initial_url: str, allow_cross_origin_redirects: bool):
+    def __init__(
+        self,
+        initial_url: str,
+        allow_cross_origin_redirects: bool,
+        allow_private_targets: bool = True,
+    ):
         super().__init__()
         self.initial_url = initial_url
         self.allow_cross_origin_redirects = allow_cross_origin_redirects
+        self.allow_private_targets = allow_private_targets
 
     def redirect_request(
         self,
@@ -97,6 +173,8 @@ class _ScopeRedirectHandler(HTTPRedirectHandler):
                 f"{_origin_label(self.initial_url)} -> {_origin_label(newurl)}. "
                 "Use --allow-cross-origin-redirects only when the destination is authorized."
             )
+        if not self.allow_private_targets:
+            _ensure_public_target(newurl)
         return super().redirect_request(req, fp, code, msg, headers, newurl)
 
 
@@ -135,18 +213,34 @@ def fetch_headers(
     target: str,
     timeout: float = 8.0,
     allow_cross_origin_redirects: bool = False,
+    allow_private_targets: bool = True,
 ) -> tuple[str, int, Mapping[str, str]]:
     """Fetch one response chain, with a narrowly scoped GET compatibility fallback."""
     normalized = normalize_target(target)
+    if not allow_private_targets:
+        _ensure_public_target(normalized)
     headers = {
         "User-Agent": (
             f"security-headers-auditor/{__version__} "
             "(+https://github.com/v-k-tsalikidis/security-headers-auditor)"
         )
     }
-    opener = build_opener(
-        _ScopeRedirectHandler(normalized, allow_cross_origin_redirects)
-    )
+    handlers = [
+        _ScopeRedirectHandler(
+            normalized,
+            allow_cross_origin_redirects,
+            allow_private_targets,
+        )
+    ]
+    if not allow_private_targets:
+        handlers.extend(
+            [
+                ProxyHandler({}),
+                _PublicAddressHTTPHandler(),
+                _PublicAddressHTTPSHandler(),
+            ]
+        )
+    opener = build_opener(*handlers)
 
     request = Request(normalized, headers=headers, method="HEAD")
     try:
@@ -178,14 +272,17 @@ def audit_headers(
     allow_cross_origin_redirects: bool = False,
     reporting_expectation: str = "observe",
     cross_origin_isolation: str = "observe",
+    allow_private_targets: bool = True,
 ) -> AuditResult:
     """Audit one response and return profile-aware structured findings."""
     try:
-        final_url, status_code, raw_headers = fetch_headers(
-            target,
-            timeout=timeout,
-            allow_cross_origin_redirects=allow_cross_origin_redirects,
-        )
+        fetch_options: dict[str, object] = {
+            "timeout": timeout,
+            "allow_cross_origin_redirects": allow_cross_origin_redirects,
+        }
+        if not allow_private_targets:
+            fetch_options["allow_private_targets"] = False
+        final_url, status_code, raw_headers = fetch_headers(target, **fetch_options)
         normalized_headers = _normalize_headers(raw_headers)
         decision = resolve_profile(profile, normalized_headers)
     except Exception as exc:  # noqa: BLE001 - the CLI reports input/network failures cleanly.
@@ -294,6 +391,65 @@ def _effective_port(parsed_url: ParseResult) -> int | None:
 def _origin_label(url: str) -> str:
     parsed = urlparse(url)
     return f"{parsed.scheme}://{parsed.netloc}"
+
+
+def _ensure_public_target(url: str) -> None:
+    """Reject non-global destinations unless the operator explicitly allows them."""
+    parsed = urlparse(url)
+    hostname = parsed.hostname
+    if not hostname:
+        raise TargetAddressBoundaryError("Target hostname is missing.")
+    _resolve_public_addresses(hostname, _effective_port(parsed))
+
+
+def _resolve_public_addresses(
+    hostname: str,
+    port: int,
+) -> list[tuple[object, ...]]:
+    try:
+        literal = ipaddress.ip_address(hostname)
+    except ValueError:
+        literal = None
+    if literal is not None:
+        if not literal.is_global:
+            raise TargetAddressBoundaryError(_non_public_target_message())
+        return [
+            (
+                socket.AF_INET6 if literal.version == 6 else socket.AF_INET,
+                socket.SOCK_STREAM,
+                socket.IPPROTO_TCP,
+                "",
+                (str(literal), port, 0, 0)
+                if literal.version == 6
+                else (str(literal), port),
+            )
+        ]
+    try:
+        resolved = socket.getaddrinfo(
+            hostname,
+            port,
+            type=socket.SOCK_STREAM,
+        )
+    except socket.gaierror as exc:
+        raise TargetAddressBoundaryError(
+            f"Target hostname {hostname!r} could not be resolved."
+        ) from exc
+    if not resolved:
+        raise TargetAddressBoundaryError(
+            f"Target hostname {hostname!r} resolved to no addresses."
+        )
+    addresses = {ipaddress.ip_address(item[4][0]) for item in resolved}
+    if any(not address.is_global for address in addresses):
+        raise TargetAddressBoundaryError(_non_public_target_message())
+    return resolved
+
+
+def _non_public_target_message() -> str:
+    return (
+        "Target resolves to a non-public address. Private, loopback, "
+        "link-local, multicast, reserved, and unspecified destinations "
+        "require an explicit private-target workspace session."
+    )
 
 
 def _safe_error_message(

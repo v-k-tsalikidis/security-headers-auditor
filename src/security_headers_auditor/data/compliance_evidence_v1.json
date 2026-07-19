@@ -1,7 +1,7 @@
 {
   "schema_version": "1.0",
   "mapping_set_id": "security-headers-auditor-compliance-evidence",
-  "mapping_set_version": "2026.07",
+  "mapping_set_version": "2026.07.1",
   "last_reviewed": "2026-07-19",
   "claims_policy": "supporting-evidence-only",
   "frameworks": {
@@ -14,6 +14,21 @@
       "name": "OWASP Application Security Verification Standard",
       "version": "5.0.0",
       "citation_key": "asvs-5"
+    },
+    "owasp-wstg": {
+      "name": "OWASP Web Security Testing Guide",
+      "version": "Latest (accessed 2026-07-19)",
+      "citation_key": "owasp-wstg-headers"
+    },
+    "mitre-attack": {
+      "name": "MITRE ATT&CK",
+      "version": "v19.1",
+      "citation_key": "mitre-attack-m1021"
+    },
+    "mitre-d3fend": {
+      "name": "MITRE D3FEND",
+      "version": "1.4.0",
+      "citation_key": "mitre-d3fend-ach"
     }
   },
   "mappings": [
@@ -21,7 +36,9 @@
       "control_key": "strict-transport-security",
       "framework": "owasp-asvs",
       "requirement": "V3.4.1",
+      "evidence_family": "verification-requirement",
       "relationship": "supports",
+      "confidence": "strong",
       "rationale": "Observed HSTS configuration can support verification that responses declare a one-year transport policy and, at higher assurance levels, include subdomains.",
       "limitations": "One response does not prove coverage across every route, host, subdomain, browser state, or the first unauthenticated HTTP visit."
     },
@@ -29,7 +46,9 @@
       "control_key": "strict-transport-security",
       "framework": "nist-sp-800-53",
       "requirement": "SC-8",
+      "evidence_family": "security-control",
       "relationship": "related",
+      "confidence": "related",
       "rationale": "HSTS is related to enforcing protected browser transport after the policy has been learned.",
       "limitations": "The header is not evidence that the broader transmission confidentiality and integrity control is fully implemented."
     },
@@ -37,7 +56,9 @@
       "control_key": "content-security-policy",
       "framework": "owasp-asvs",
       "requirement": "V3.4.3",
+      "evidence_family": "verification-requirement",
       "relationship": "supports",
+      "confidence": "strong",
       "rationale": "Observed CSP directives can support verification of trusted content loading and execution restrictions.",
       "limitations": "Header presence alone does not establish policy quality, route coverage, nonce correctness, or resistance to application-specific bypasses."
     },
@@ -45,7 +66,9 @@
       "control_key": "content-security-policy",
       "framework": "owasp-asvs",
       "requirement": "V3.4.6",
+      "evidence_family": "verification-requirement",
       "relationship": "supports",
+      "confidence": "strong",
       "rationale": "An explicit frame-ancestors directive can support verification of modern framing restrictions.",
       "limitations": "The auditor observes one response and does not prove that frame-ancestors is consistently deployed across every document response."
     },
@@ -53,7 +76,9 @@
       "control_key": "content-security-policy",
       "framework": "nist-sp-800-53",
       "requirement": "SC-18",
+      "evidence_family": "security-control",
       "relationship": "related",
+      "confidence": "related",
       "rationale": "CSP is related to constraining executable browser content and reducing the privilege available to injected code.",
       "limitations": "CSP is a defense-in-depth mechanism and does not satisfy mobile-code control requirements by itself."
     },
@@ -61,7 +86,9 @@
       "control_key": "x-content-type-options",
       "framework": "owasp-asvs",
       "requirement": "V3.4.4",
+      "evidence_family": "verification-requirement",
       "relationship": "supports",
+      "confidence": "direct",
       "rationale": "The nosniff directive directly supports verification that browsers are instructed not to guess response MIME types.",
       "limitations": "The header does not prove that the declared Content-Type is correct for the response body."
     },
@@ -69,7 +96,9 @@
       "control_key": "x-frame-options",
       "framework": "owasp-asvs",
       "requirement": "V3.4.6",
+      "evidence_family": "verification-requirement",
       "relationship": "legacy-support",
+      "confidence": "related",
       "rationale": "X-Frame-Options may provide legacy framing protection alongside the preferred CSP frame-ancestors directive.",
       "limitations": "ASVS identifies frame-ancestors as the required modern control and states that X-Frame-Options must not be relied upon alone."
     },
@@ -77,7 +106,9 @@
       "control_key": "referrer-policy",
       "framework": "owasp-asvs",
       "requirement": "V3.4.5",
+      "evidence_family": "verification-requirement",
       "relationship": "supports",
+      "confidence": "strong",
       "rationale": "An explicit restrictive referrer policy can support verification that URL data leakage is deliberately constrained.",
       "limitations": "One response cannot establish whether URLs contain sensitive data or whether every document applies the intended policy."
     },
@@ -85,7 +116,9 @@
       "control_key": "reporting-readiness",
       "framework": "owasp-asvs",
       "requirement": "V3.4.7",
+      "evidence_family": "verification-requirement",
       "relationship": "supports",
+      "confidence": "strong",
       "rationale": "A valid CSP reporting directive linked to a trustworthy reporting endpoint can support verification that violation reporting is configured.",
       "limitations": "Configuration evidence does not prove browser delivery, collector availability, retention, triage, or incident response."
     },
@@ -93,7 +126,9 @@
       "control_key": "cross-origin-opener-policy",
       "framework": "owasp-asvs",
       "requirement": "V3.4.8",
+      "evidence_family": "verification-requirement",
       "relationship": "supports",
+      "confidence": "strong",
       "rationale": "A recognized COOP directive can support verification that a document declares an intentional opener relationship policy.",
       "limitations": "The correct value depends on popup, payment, and federated sign-in requirements."
     },
@@ -101,7 +136,9 @@
       "control_key": "cross-origin-resource-policy",
       "framework": "owasp-asvs",
       "requirement": "V3.5.8",
+      "evidence_family": "verification-requirement",
       "relationship": "supports",
+      "confidence": "strong",
       "rationale": "A restrictive CORP value can support verification that authenticated resources declare cross-origin loading boundaries.",
       "limitations": "The correct policy is resource-specific and cannot be inferred from the top-level response alone."
     },
@@ -109,7 +146,9 @@
       "control_key": "cross-origin-isolation-bundle",
       "framework": "owasp-asvs",
       "requirement": "V3.4.8",
+      "evidence_family": "verification-requirement",
       "relationship": "related",
+      "confidence": "related",
       "rationale": "The bundle assesses whether the observed response declares the COOP and COEP values normally required for cross-origin isolation readiness.",
       "limitations": "Actual crossOriginIsolated state also depends on browser behavior and every dependent resource in the page graph."
     },
@@ -117,9 +156,77 @@
       "control_key": "cross-origin-isolation-bundle",
       "framework": "owasp-asvs",
       "requirement": "V3.5.8",
+      "evidence_family": "verification-requirement",
       "relationship": "related",
+      "confidence": "related",
       "rationale": "CORP and compatible CORS behavior on dependent resources contribute to a coherent cross-origin isolation deployment.",
       "limitations": "A single-response header audit cannot inspect the complete dependency graph or runtime compatibility."
+    },
+    {
+      "control_key": "content-security-policy",
+      "framework": "owasp-wstg",
+      "requirement": "WSTG-CONF-12",
+      "evidence_family": "test-procedure",
+      "relationship": "test-coverage",
+      "confidence": "strong",
+      "rationale": "The auditor checks CSP presence and selected policy weaknesses that are directly relevant to the WSTG CSP testing procedure.",
+      "limitations": "The automated response assessment does not execute browser tests, enumerate every route, or replace application-specific CSP bypass analysis.",
+      "citation_key": "owasp-csp-testing"
+    },
+    {
+      "control_key": "x-content-type-options",
+      "framework": "owasp-wstg",
+      "requirement": "WSTG-CONF-14",
+      "evidence_family": "test-procedure",
+      "relationship": "test-coverage",
+      "confidence": "direct",
+      "rationale": "The auditor verifies that X-Content-Type-Options is present with the nosniff directive described by the WSTG security-header procedure.",
+      "limitations": "The finding does not validate whether the response Content-Type accurately represents the body.",
+      "citation_key": "owasp-wstg-headers"
+    },
+    {
+      "control_key": "x-frame-options",
+      "framework": "owasp-wstg",
+      "requirement": "WSTG-CONF-14",
+      "evidence_family": "test-procedure",
+      "relationship": "test-coverage",
+      "confidence": "strong",
+      "rationale": "The auditor validates recognized X-Frame-Options values while also evaluating the preferred CSP frame-ancestors control.",
+      "limitations": "Header inspection does not exercise framing behavior in every supported browser or prove consistent deployment across document routes.",
+      "citation_key": "owasp-wstg-headers"
+    },
+    {
+      "control_key": "content-security-policy",
+      "framework": "mitre-attack",
+      "requirement": "M1021",
+      "evidence_family": "threat-mitigation",
+      "relationship": "supports-mitigation",
+      "confidence": "direct",
+      "rationale": "MITRE ATT&CK M1021 explicitly identifies CSP as a means to restrict script execution, iframe embedding, and cross-origin requests.",
+      "limitations": "An observed CSP header is partial technical evidence only; it does not prove enterprise-wide implementation of the ATT&CK mitigation or successful prevention of every mapped technique.",
+      "citation_key": "mitre-attack-m1021"
+    },
+    {
+      "control_key": "content-security-policy",
+      "framework": "mitre-attack",
+      "requirement": "T1027.006",
+      "evidence_family": "threat-mitigation",
+      "relationship": "mitigation-context",
+      "confidence": "related",
+      "rationale": "ATT&CK lists content security policy under mitigations for HTML Smuggling, providing threat context for a restrictive CSP assessment.",
+      "limitations": "CSP is one defense-in-depth measure and this relationship does not mean that a passing header result detects or prevents HTML Smuggling by itself.",
+      "citation_key": "mitre-attack-t1027-006"
+    },
+    {
+      "control_key": "content-security-policy",
+      "framework": "mitre-d3fend",
+      "requirement": "D3-ACH",
+      "evidence_family": "defensive-technique",
+      "relationship": "related",
+      "confidence": "inferred",
+      "rationale": "A deliberately hardened CSP is an application configuration hardening measure and is therefore conceptually related to D3FEND D3-ACH.",
+      "limitations": "This is an auditor-maintained inferred relationship, not an explicit D3FEND assertion that D3-ACH is implemented by CSP or satisfied by a header audit.",
+      "citation_key": "mitre-d3fend-ach"
     }
   ]
 }

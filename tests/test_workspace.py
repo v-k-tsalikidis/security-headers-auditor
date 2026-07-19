@@ -1,0 +1,515 @@
+from __future__ import annotations
+
+import json
+import sqlite3
+import tempfile
+import threading
+import unittest
+from copy import deepcopy
+from http.client import HTTPConnection
+from pathlib import Path
+from unittest.mock import patch
+
+from security_headers_auditor import METHODOLOGY_VERSION
+from security_headers_auditor.auditor import audit_headers
+from security_headers_auditor.workspace.migrations import (
+    WorkspaceMigrationError,
+    migrate_workspace,
+)
+from security_headers_auditor.workspace.repository import (
+    WorkspaceConflictError,
+    WorkspaceDatabaseVersionError,
+    WorkspaceNotFoundError,
+    WorkspaceRepository,
+)
+from security_headers_auditor.workspace.server import create_workspace_server
+from security_headers_auditor.workspace.schema import (
+    MAX_WORKSPACE_BYTES,
+    WorkspaceValidationError,
+    parse_workspace_bytes,
+    validate_workspace,
+)
+from security_headers_auditor.workspace.security import (
+    LoopbackRequestGuard,
+    WorkspaceAuthorizationError,
+    WorkspaceRequestError,
+)
+from security_headers_auditor.workspace.service import WorkspaceService
+
+
+FIXTURES = Path(__file__).parent / "fixtures"
+
+
+def workspace_payload() -> dict[str, object]:
+    return {
+        "schema_version": "1.0",
+        "workspace_id": "5f0f84f3-1775-4de5-b2c8-3768c9d03f45",
+        "name": "Fixture workspace",
+        "policy": {
+            "schema_version": "1.0",
+            "methodology_version": METHODOLOGY_VERSION,
+            "name": "fixture-policy",
+            "defaults": {
+                "fail_on_severity": ["high"],
+                "allow_auto_profile": False,
+            },
+            "targets": [
+                {
+                    "id": "public-site",
+                    "url": "https://example.test/",
+                    "profile": "brochure",
+                    "minimum_score": 75,
+                    "maximum_score_drop": 0,
+                    "required_controls": [
+                        "strict-transport-security",
+                        "content-security-policy",
+                    ],
+                    "reporting_readiness": "observe",
+                    "cross_origin_isolation": "not_applicable",
+                }
+            ],
+        },
+        "approved_baseline": None,
+        "latest_summaries": {},
+        "created_at": "2026-07-19T10:00:00+00:00",
+        "updated_at": "2026-07-19T10:00:00+00:00",
+    }
+
+
+def audit_from_fixture(name: str):
+    fixture = json.loads(
+        (FIXTURES / f"{name}_headers.json").read_text(encoding="utf-8")
+    )
+
+    def fixture_fetch(
+        target: str,
+        timeout: float = 8.0,
+        allow_cross_origin_redirects: bool = False,
+        allow_private_targets: bool = True,
+    ):
+        del target, timeout, allow_cross_origin_redirects, allow_private_targets
+        return fixture["final_url"], fixture["status_code"], fixture["headers"]
+
+    def fixture_audit(target: str, **kwargs):
+        kwargs.pop("allow_private_targets", None)
+        with patch(
+            "security_headers_auditor.auditor.fetch_headers",
+            fixture_fetch,
+        ):
+            return audit_headers(target, **kwargs)
+
+    return fixture_audit
+
+
+class WorkspaceSchemaTests(unittest.TestCase):
+    def test_valid_workspace_passes(self):
+        payload = workspace_payload()
+        self.assertIs(validate_workspace(payload), payload)
+
+    def test_unknown_field_is_rejected(self):
+        payload = workspace_payload()
+        payload["raw_headers"] = {"Server": "fixture"}
+        with self.assertRaisesRegex(
+            WorkspaceValidationError,
+            "unknown fields: raw_headers",
+        ):
+            validate_workspace(payload)
+
+    def test_summary_cannot_persist_raw_values(self):
+        payload = workspace_payload()
+        payload["latest_summaries"] = {
+            "public-site": {
+                "target_id": "public-site",
+                "completed_at": "2026-07-19T10:30:00+00:00",
+                "target": "https://example.test/",
+                "selected_profile": "brochure",
+                "score": 90,
+                "outcome": "passed",
+                "exit_code": 0,
+                "findings": {
+                    "strict-transport-security": {
+                        "status": "pass",
+                        "severity": "info",
+                        "category": "scored",
+                        "applicability": "required",
+                        "points": 30,
+                        "max_points": 30,
+                        "value": "max-age=31536000",
+                    }
+                },
+            }
+        }
+        with self.assertRaisesRegex(
+            WorkspaceValidationError,
+            "unknown fields: value",
+        ):
+            validate_workspace(payload)
+
+    def test_import_size_and_utf8_are_checked_before_json(self):
+        with self.assertRaisesRegex(WorkspaceValidationError, "exceeds"):
+            parse_workspace_bytes(b" " * (MAX_WORKSPACE_BYTES + 1))
+        with self.assertRaisesRegex(WorkspaceValidationError, "UTF-8"):
+            parse_workspace_bytes(b"\xff")
+
+    def test_import_round_trip_is_current_and_deterministic(self):
+        raw = json.dumps(
+            workspace_payload(),
+            sort_keys=True,
+            separators=(",", ":"),
+        ).encode()
+        parsed, applied = parse_workspace_bytes(raw)
+        self.assertEqual(parsed, workspace_payload())
+        self.assertEqual(applied, ())
+
+    def test_unknown_future_schema_is_rejected_without_mutation(self):
+        payload = workspace_payload()
+        payload["schema_version"] = "99.0"
+        original = deepcopy(payload)
+        with self.assertRaisesRegex(
+            WorkspaceMigrationError,
+            "Unsupported workspace schema",
+        ):
+            migrate_workspace(payload)
+        self.assertEqual(payload, original)
+
+
+class WorkspaceRepositoryTests(unittest.TestCase):
+    def setUp(self):
+        self.temporary = tempfile.TemporaryDirectory()
+        self.database = Path(self.temporary.name) / "workspace.sqlite3"
+        self.repository = WorkspaceRepository(self.database)
+
+    def tearDown(self):
+        self.temporary.cleanup()
+
+    def test_create_get_save_and_conflict(self):
+        payload = workspace_payload()
+        created = self.repository.create(payload)
+        self.assertEqual(created.revision, 0)
+        self.assertEqual(self.repository.get(payload["workspace_id"]), created)
+
+        updated = deepcopy(payload)
+        updated["name"] = "Updated fixture"
+        updated["updated_at"] = "2026-07-19T11:00:00+00:00"
+        saved = self.repository.save(updated, expected_revision=0)
+        self.assertEqual(saved.revision, 1)
+        self.assertEqual(saved.document["name"], "Updated fixture")
+
+        with self.assertRaisesRegex(WorkspaceConflictError, "expected 0, current 1"):
+            self.repository.save(payload, expected_revision=0)
+        self.assertEqual(
+            self.repository.get(payload["workspace_id"]).document["name"],
+            "Updated fixture",
+        )
+
+    def test_duplicate_create_and_missing_workspace_are_explicit(self):
+        payload = workspace_payload()
+        self.repository.create(payload)
+        with self.assertRaises(WorkspaceConflictError):
+            self.repository.create(payload)
+        with self.assertRaises(WorkspaceNotFoundError):
+            self.repository.get("d102d3c2-ed83-4447-85f9-5945450e89b9")
+
+    def test_delete_requires_current_revision(self):
+        payload = workspace_payload()
+        self.repository.create(payload)
+        with self.assertRaises(WorkspaceConflictError):
+            self.repository.delete(payload["workspace_id"], expected_revision=1)
+        self.repository.delete(payload["workspace_id"], expected_revision=0)
+        with self.assertRaises(WorkspaceNotFoundError):
+            self.repository.get(payload["workspace_id"])
+
+    def test_clear_all_returns_deleted_count(self):
+        self.repository.create(workspace_payload())
+        self.assertEqual(self.repository.clear_all(), 1)
+        self.assertEqual(self.repository.list_workspaces(), ())
+
+    def test_database_and_directory_permissions_are_restricted(self):
+        if self.database.stat().st_mode & 0o777:
+            self.assertEqual(self.database.stat().st_mode & 0o777, 0o600)
+            self.assertEqual(self.database.parent.stat().st_mode & 0o777, 0o700)
+
+    def test_newer_physical_database_is_rejected(self):
+        newer = Path(self.temporary.name) / "newer.sqlite3"
+        with sqlite3.connect(newer) as connection:
+            connection.execute("PRAGMA user_version = 99")
+        with self.assertRaisesRegex(
+            WorkspaceDatabaseVersionError,
+            "newer than supported",
+        ):
+            WorkspaceRepository(newer)
+
+    def test_revision_type_is_rejected_without_changing_state(self):
+        payload = workspace_payload()
+        self.repository.create(payload)
+        with self.assertRaisesRegex(
+            WorkspaceConflictError,
+            "non-negative integer",
+        ):
+            self.repository.save(payload, expected_revision="0")  # type: ignore[arg-type]
+        self.assertEqual(
+            self.repository.get(payload["workspace_id"]).revision,
+            0,
+        )
+
+    def test_failed_database_migration_rolls_back_and_creates_backup(self):
+        legacy = Path(self.temporary.name) / "legacy.sqlite3"
+        with sqlite3.connect(legacy) as connection:
+            connection.execute("CREATE TABLE preserved (value TEXT NOT NULL)")
+            connection.execute("INSERT INTO preserved VALUES ('original')")
+        with patch(
+            "security_headers_auditor.workspace.repository.DB_VERSION",
+            2,
+        ):
+            with self.assertRaises(WorkspaceDatabaseVersionError):
+                WorkspaceRepository(legacy)
+        with sqlite3.connect(legacy) as connection:
+            self.assertEqual(
+                connection.execute("SELECT value FROM preserved").fetchone()[0],
+                "original",
+            )
+            self.assertIsNone(
+                connection.execute(
+                    "SELECT name FROM sqlite_master WHERE name = 'workspaces'"
+                ).fetchone()
+            )
+        self.assertEqual(
+            len(list(Path(self.temporary.name).glob("legacy.sqlite3.v0.*.bak"))),
+            1,
+        )
+
+
+class WorkspaceServiceTests(unittest.TestCase):
+    def setUp(self):
+        self.temporary = tempfile.TemporaryDirectory()
+        self.repository = WorkspaceRepository(
+            Path(self.temporary.name) / "workspace.sqlite3"
+        )
+        self.repository.create(workspace_payload())
+        self.service = WorkspaceService(self.repository)
+        self.workspace_id = str(workspace_payload()["workspace_id"])
+
+    def tearDown(self):
+        self.temporary.cleanup()
+
+    def test_run_persists_minimal_summary_but_returns_detailed_evidence(self):
+        with patch(
+            "security_headers_auditor.workspace.service.audit_headers",
+            audit_from_fixture("assurance_ready"),
+        ):
+            response = self.service.run(self.workspace_id, expected_revision=0)
+        self.assertEqual(response["record"]["revision"], 1)
+        summary = response["record"]["document"]["latest_summaries"]["public-site"]
+        self.assertNotIn("value", json.dumps(summary))
+        findings = response["run"]["assessments"][0]["result"]["findings"]
+        self.assertTrue(any(finding.get("value") for finding in findings))
+        html = self.service.export_current_report(self.workspace_id, "html")
+        self.assertEqual(html["media_type"], "text/html")
+        self.assertIn("Security Headers Audit Report", html["content"])
+        self.assertNotIn("<script", html["content"].lower())
+        sarif = self.service.export_current_report(self.workspace_id, "sarif")
+        self.assertEqual(json.loads(sarif["content"])["version"], "2.1.0")
+
+    def test_report_export_requires_a_current_in_memory_run(self):
+        with self.assertRaisesRegex(ValueError, "run assurance first"):
+            self.service.export_current_report(self.workspace_id, "html")
+
+    def test_candidate_requires_pass_and_approval_is_separate_revision(self):
+        with patch(
+            "security_headers_auditor.workspace.service.audit_headers",
+            audit_from_fixture("assurance_ready"),
+        ):
+            response = self.service.create_candidate_baseline(
+                self.workspace_id,
+                expected_revision=0,
+            )
+        self.assertIsNone(
+            response["record"]["document"]["approved_baseline"]
+        )
+        self.assertEqual(response["diff"]["change_count"], 1)
+        approved = self.service.approve_baseline(
+            self.workspace_id,
+            response["candidate"],
+            expected_revision=response["record"]["revision"],
+        )
+        self.assertEqual(approved["record"]["revision"], 2)
+        self.assertIsNotNone(
+            approved["record"]["document"]["approved_baseline"]
+        )
+
+    def test_candidate_target_mismatch_is_rejected(self):
+        with patch(
+            "security_headers_auditor.workspace.service.audit_headers",
+            audit_from_fixture("assurance_ready"),
+        ):
+            response = self.service.create_candidate_baseline(
+                self.workspace_id,
+                expected_revision=0,
+            )
+        candidate = deepcopy(response["candidate"])
+        candidate["targets"]["unknown-target"] = candidate["targets"].pop(
+            "public-site"
+        )
+        with self.assertRaisesRegex(ValueError, "exactly match"):
+            self.service.approve_baseline(
+                self.workspace_id,
+                candidate,
+                expected_revision=1,
+            )
+        self.assertIsNone(
+            self.repository.get(self.workspace_id).document["approved_baseline"]
+        )
+
+
+class LoopbackRequestGuardTests(unittest.TestCase):
+    def setUp(self):
+        self.guard = LoopbackRequestGuard.create(port=8766)
+        self.headers = {
+            "Host": "127.0.0.1:8766",
+            "Authorization": f"Bearer {self.guard.token}",
+            "Origin": "http://127.0.0.1:8766",
+            "Sec-Fetch-Site": "same-origin",
+            "Content-Type": "application/json; charset=utf-8",
+        }
+
+    def test_same_origin_token_request_is_authorized(self):
+        self.guard.authorize("POST", self.headers, content_length=128)
+
+    def test_wrong_host_origin_token_and_fetch_site_are_rejected(self):
+        mutations = {
+            "Host": "attacker.test",
+            "Origin": "https://attacker.test",
+            "Authorization": "Bearer wrong",
+            "Sec-Fetch-Site": "cross-site",
+        }
+        for field, value in mutations.items():
+            with self.subTest(field=field):
+                headers = dict(self.headers)
+                headers[field] = value
+                with self.assertRaises(WorkspaceAuthorizationError):
+                    self.guard.authorize("POST", headers, content_length=1)
+
+    def test_state_change_requires_origin_and_json(self):
+        missing_origin = dict(self.headers)
+        del missing_origin["Origin"]
+        with self.assertRaisesRegex(
+            WorkspaceAuthorizationError,
+            "require the workspace Origin",
+        ):
+            self.guard.authorize("POST", missing_origin, content_length=1)
+
+        wrong_type = dict(self.headers)
+        wrong_type["Content-Type"] = "text/plain"
+        with self.assertRaisesRegex(
+            WorkspaceRequestError,
+            "application/json",
+        ):
+            self.guard.authorize("POST", wrong_type, content_length=1)
+
+    def test_oversized_body_is_rejected(self):
+        with self.assertRaisesRegex(WorkspaceRequestError, "exceeds"):
+            self.guard.authorize(
+                "POST",
+                self.headers,
+                content_length=MAX_WORKSPACE_BYTES + 1,
+            )
+
+    def test_non_loopback_guard_cannot_be_created(self):
+        with self.assertRaisesRegex(ValueError, "127.0.0.1"):
+            LoopbackRequestGuard.create(host="0.0.0.0")
+
+
+class WorkspaceServerIntegrationTests(unittest.TestCase):
+    def setUp(self):
+        self.temporary = tempfile.TemporaryDirectory()
+        repository = WorkspaceRepository(
+            Path(self.temporary.name) / "workspace.sqlite3"
+        )
+        self.server = create_workspace_server(repository, port=0)
+        self.thread = threading.Thread(
+            target=self.server.httpd.serve_forever,
+            daemon=True,
+        )
+        self.thread.start()
+
+    def tearDown(self):
+        self.server.httpd.shutdown()
+        self.server.httpd.server_close()
+        self.thread.join(timeout=2)
+        self.temporary.cleanup()
+
+    def request(
+        self,
+        method: str,
+        path: str,
+        body: dict[str, object] | None = None,
+        *,
+        token: str | None = None,
+        origin: str | None = None,
+    ):
+        encoded = None if body is None else json.dumps(body).encode()
+        headers = {
+            "Authorization": f"Bearer {token or self.server.guard.token}",
+            "Sec-Fetch-Site": "same-origin",
+        }
+        if encoded is not None:
+            headers["Content-Type"] = "application/json"
+            headers["Origin"] = origin or self.server.guard.origin
+        connection = HTTPConnection(
+            self.server.guard.host,
+            self.server.guard.port,
+            timeout=2,
+        )
+        connection.request(method, path, body=encoded, headers=headers)
+        response = connection.getresponse()
+        payload = response.read()
+        connection.close()
+        return response, payload
+
+    def test_static_workspace_is_loopback_hardened(self):
+        response, payload = self.request("GET", "/")
+        self.assertEqual(response.status, 200)
+        self.assertIn(b"Security Headers Auditor", payload)
+        self.assertEqual(response.getheader("Cache-Control"), "no-store")
+        self.assertIn(
+            "default-src 'none'",
+            response.getheader("Content-Security-Policy"),
+        )
+
+    def test_tokenless_and_cross_origin_api_requests_fail(self):
+        response, _ = self.request(
+            "GET",
+            "/api/v1/bootstrap",
+            token="wrong",
+        )
+        self.assertEqual(response.status, 403)
+        response, _ = self.request(
+            "POST",
+            "/api/v1/workspaces",
+            workspace_payload(),
+            origin="https://attacker.test",
+        )
+        self.assertEqual(response.status, 403)
+
+    def test_authorized_api_create_and_read_round_trip(self):
+        response, payload = self.request(
+            "POST",
+            "/api/v1/workspaces",
+            workspace_payload(),
+        )
+        self.assertEqual(response.status, 201)
+        created = json.loads(payload)
+        self.assertEqual(created["revision"], 0)
+        response, payload = self.request(
+            "GET",
+            f"/api/v1/workspaces/{workspace_payload()['workspace_id']}",
+        )
+        self.assertEqual(response.status, 200)
+        self.assertEqual(
+            json.loads(payload)["document"]["name"],
+            "Fixture workspace",
+        )
+
+
+if __name__ == "__main__":
+    unittest.main()

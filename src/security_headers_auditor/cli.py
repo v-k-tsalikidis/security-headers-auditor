@@ -107,9 +107,47 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
+def build_workspace_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(
+        prog="security-headers-auditor workspace",
+        description=(
+            "Run the local-only Security Headers Auditor workspace on loopback."
+        ),
+    )
+    parser.add_argument(
+        "--port",
+        type=int,
+        default=8766,
+        help="Loopback port for the local workspace. Default: 8766.",
+    )
+    parser.add_argument(
+        "--data-dir",
+        type=Path,
+        help="Override the per-user workspace data directory.",
+    )
+    parser.add_argument(
+        "--allow-private-targets",
+        action="store_true",
+        help=(
+            "Permit private, loopback, link-local, or reserved target addresses "
+            "for this session. Use only for explicitly authorized internal systems."
+        ),
+    )
+    parser.add_argument(
+        "--no-open",
+        action="store_true",
+        help="Do not open the workspace in the default browser.",
+    )
+    return parser
+
+
 def main(argv: list[str] | None = None) -> int:
+    resolved_argv = list(sys.argv[1:] if argv is None else argv)
+    if resolved_argv[:1] == ["workspace"]:
+        return _run_workspace_mode(resolved_argv[1:])
+
     parser = build_parser()
-    args = parser.parse_args(argv)
+    args = parser.parse_args(resolved_argv)
 
     if args.policy:
         if args.targets or args.input_file:
@@ -151,6 +189,40 @@ def main(argv: list[str] | None = None) -> int:
     _write_output(args.output, rendered)
 
     return 2 if any(result.error for result in results) else 0
+
+
+def _run_workspace_mode(argv: list[str]) -> int:
+    parser = build_workspace_parser()
+    args = parser.parse_args(argv)
+    if not 1 <= args.port <= 65535:
+        parser.error("--port must be between 1 and 65535.")
+
+    from .workspace.repository import WorkspaceRepository
+    from .workspace.server import create_workspace_server
+
+    database_path = (
+        args.data_dir.expanduser() / "workspace.sqlite3"
+        if args.data_dir
+        else None
+    )
+    repository = WorkspaceRepository(database_path)
+    server = create_workspace_server(
+        repository,
+        port=args.port,
+        allow_private_targets=args.allow_private_targets,
+    )
+    scope = (
+        "private targets enabled"
+        if args.allow_private_targets
+        else "public targets only"
+    )
+    print(f"Workspace: {server.guard.origin} ({scope})")
+    print("Press Ctrl+C to stop. The session token is not printed.")
+    try:
+        server.serve_forever(open_browser=not args.no_open)
+    except KeyboardInterrupt:
+        print("\nWorkspace stopped.")
+    return 0
 
 
 def _run_policy_mode(args: argparse.Namespace) -> int:

@@ -2,7 +2,7 @@
 
 Methodology version: `0.4.0`
 
-Evidence mapping set: `2026.07`
+Evidence mapping set: `2026.07.1`
 
 This deterministic excerpt uses the local authenticated-application fixture. It
 demonstrates the profile score, assurance controls, and approved-baseline outcome

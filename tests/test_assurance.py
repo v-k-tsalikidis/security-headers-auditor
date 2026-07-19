@@ -8,7 +8,9 @@ from pathlib import Path
 from unittest.mock import patch
 from xml.etree.ElementTree import fromstring
 
-from security_headers_auditor import __version__
+from jsonschema import Draft7Validator
+
+from security_headers_auditor import METHODOLOGY_VERSION, __version__
 from security_headers_auditor.assurance import (
     BaselineCompatibilityError,
     PolicyConfigurationError,
@@ -81,7 +83,7 @@ def policy_payload(**target_overrides):
     target.update(target_overrides)
     return {
         "schema_version": "1.0",
-        "methodology_version": __version__,
+        "methodology_version": METHODOLOGY_VERSION,
         "name": "fixture-assurance",
         "defaults": {
             "fail_on_severity": ["high"],
@@ -235,6 +237,17 @@ class CrossOriginIsolationTests(unittest.TestCase):
 
 
 class PolicyContractTests(unittest.TestCase):
+    def test_v0_5_tool_preserves_v0_4_methodology_contract(self):
+        self.assertEqual(__version__, "0.5.0")
+        self.assertEqual(METHODOLOGY_VERSION, "0.4.0")
+        policy = parse_policy(policy_payload())
+        run = run_assurance(
+            policy,
+            audit_function=audit_from_fixture("assurance_ready"),
+        )
+        self.assertEqual(policy.methodology_version, METHODOLOGY_VERSION)
+        self.assertEqual(run.methodology_version, METHODOLOGY_VERSION)
+
     def test_continuous_policy_requires_explicit_profile_by_default(self):
         payload = policy_payload(profile="auto")
         with self.assertRaisesRegex(PolicyConfigurationError, "explicit profile"):
@@ -451,7 +464,7 @@ class BaselineRegressionTests(unittest.TestCase):
 
 class EvidenceMappingTests(unittest.TestCase):
     def test_manifest_is_versioned_and_evidence_only(self):
-        self.assertEqual(MAPPING_SET_VERSION, "2026.07")
+        self.assertEqual(MAPPING_SET_VERSION, "2026.07.1")
         self.assertEqual(
             MAPPING_MANIFEST.claims_policy,
             "supporting-evidence-only",
@@ -462,6 +475,22 @@ class EvidenceMappingTests(unittest.TestCase):
         mappings = mappings_for_control("reporting-readiness")
         self.assertEqual(mappings[0].requirement, "V3.4.7")
         self.assertIn("does not prove", mappings[0].limitations)
+
+    def test_csp_mappings_distinguish_evidence_families_and_confidence(self):
+        mappings = mappings_for_control("content-security-policy")
+        families = {mapping.evidence_family for mapping in mappings}
+        self.assertIn("verification-requirement", families)
+        self.assertIn("test-procedure", families)
+        self.assertIn("security-control", families)
+        self.assertIn("threat-mitigation", families)
+        self.assertIn("defensive-technique", families)
+        d3fend = next(
+            mapping
+            for mapping in mappings
+            if mapping.framework_id == "mitre-d3fend"
+        )
+        self.assertEqual(d3fend.confidence, "inferred")
+        self.assertIn("inferred relationship", d3fend.limitations)
 
 
 class CIOutputTests(unittest.TestCase):
@@ -481,7 +510,7 @@ class CIOutputTests(unittest.TestCase):
         payload = json.loads(render_assurance_json(self.run))
         self.assertEqual(payload["outcome"], "failed")
         self.assertEqual(payload["exit_code"], 1)
-        self.assertEqual(payload["mapping_set_version"], "2026.07")
+        self.assertEqual(payload["mapping_set_version"], "2026.07.1")
 
     def test_sarif_contains_regression_diagnostics(self):
         payload = json.loads(render_sarif(self.run))
@@ -493,6 +522,17 @@ class CIOutputTests(unittest.TestCase):
                 for result in results
             )
         )
+
+    def test_sarif_validates_against_official_oasis_schema(self):
+        schema = json.loads(
+            (
+                Path(__file__).parent
+                / "schemas"
+                / "sarif-schema-2.1.0.json"
+            ).read_text(encoding="utf-8")
+        )
+        Draft7Validator.check_schema(schema)
+        Draft7Validator(schema).validate(json.loads(render_sarif(self.run)))
 
     def test_junit_contains_target_failure(self):
         root = fromstring(render_junit(self.run))

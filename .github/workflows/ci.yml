@@ -22,7 +22,7 @@ jobs:
           python-version: ${{ matrix.python-version }}
 
       - name: Install package
-        run: python -m pip install -e .
+        run: python -m pip install -e ".[test]"
 
       - name: Compile source and tests
         run: python -m compileall -q src tests
@@ -76,3 +76,37 @@ jobs:
             build/assurance.junit.xml
             build/assurance-candidate-baseline.json
           if-no-files-found: error
+
+  frontend:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 11.9.0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: "24"
+          cache: pnpm
+          cache-dependency-path: frontend/pnpm-lock.yaml
+
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: pnpm install --frozen-lockfile
+
+      - name: Test frontend
+        working-directory: frontend
+        run: pnpm test
+
+      - name: Build packaged workspace assets
+        working-directory: frontend
+        run: pnpm build
+
+      - name: Verify committed assets are current
+        run: git diff --exit-code -- src/security_headers_auditor/workspace_static

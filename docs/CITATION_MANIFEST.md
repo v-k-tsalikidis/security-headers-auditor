@@ -49,7 +49,7 @@ scoring model.
 
 ## Versioned Evidence Mappings
 
-Mapping set `2026.07` is stored in
+Mapping set `2026.07.1` is stored in
 `src/security_headers_auditor/data/compliance_evidence_v1.json`. Every mapping
 contains a framework version, requirement identifier, relationship, rationale,
 limitation, and citation source.

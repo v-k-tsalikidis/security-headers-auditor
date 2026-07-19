@@ -8,16 +8,13 @@ from html import escape
 from typing import TYPE_CHECKING
 from urllib.parse import urlparse
 
-from . import __version__
+from . import METHODOLOGY_VERSION
 from .auditor import AuditResult, HeaderFinding
 from .catalog import CITATIONS, Citation
 from .compliance import MAPPING_SET_VERSION
 
 if TYPE_CHECKING:
     from .assurance import AssuranceRun
-
-
-METHODOLOGY_VERSION = __version__
 
 
 def render_markdown(
@@ -1098,6 +1095,7 @@ def _render_html_evidence_mappings(finding: HeaderFinding) -> str:
         "<li>"
         f"<strong>{escape(mapping.label)}</strong>"
         f"<span>{escape(mapping.rationale)}</span>"
+        f"<small>Confidence: {escape(mapping.confidence.title())}</small>"
         f"<small>Limitation: {escape(mapping.limitations)}</small>"
         "</li>"
         for mapping in finding.evidence_mappings

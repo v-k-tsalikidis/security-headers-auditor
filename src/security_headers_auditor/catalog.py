@@ -62,6 +62,18 @@ CITATIONS: dict[str, Citation] = {
             "12-Test_for_Content_Security_Policy"
         ),
     ),
+    "owasp-wstg-headers": Citation(
+        key="owasp-wstg-headers",
+        title="Testing for HTTP Security Headers",
+        publisher="OWASP Web Security Testing Guide",
+        source_type="official testing guidance",
+        url=(
+            "https://owasp.org/www-project-web-security-testing-guide/latest/"
+            "4-Web_Application_Security_Testing/"
+            "02-Configuration_and_Deployment_Management_Testing/"
+            "14-Testing_for_HTTP_Security_Headers"
+        ),
+    ),
     "rfc-6797": Citation(
         key="rfc-6797",
         title="RFC 6797: HTTP Strict Transport Security",
@@ -131,6 +143,27 @@ CITATIONS: dict[str, Citation] = {
         publisher="National Institute of Standards and Technology",
         source_type="security control catalogue",
         url="https://csrc.nist.gov/pubs/sp/800/53/r5/upd1/final",
+    ),
+    "mitre-attack-m1021": Citation(
+        key="mitre-attack-m1021",
+        title="MITRE ATT&CK M1021: Restrict Web-Based Content",
+        publisher="MITRE ATT&CK",
+        source_type="threat mitigation knowledge base",
+        url="https://attack.mitre.org/mitigations/M1021/",
+    ),
+    "mitre-attack-t1027-006": Citation(
+        key="mitre-attack-t1027-006",
+        title="MITRE ATT&CK T1027.006: HTML Smuggling",
+        publisher="MITRE ATT&CK",
+        source_type="adversary technique knowledge base",
+        url="https://attack.mitre.org/techniques/T1027/006/",
+    ),
+    "mitre-d3fend-ach": Citation(
+        key="mitre-d3fend-ach",
+        title="MITRE D3FEND D3-ACH: Application Configuration Hardening",
+        publisher="MITRE D3FEND",
+        source_type="defensive technique knowledge base",
+        url="https://d3fend.mitre.org/technique/d3f:ApplicationConfigurationHardening/",
     ),
     "csp-is-dead": Citation(
         key="csp-is-dead",

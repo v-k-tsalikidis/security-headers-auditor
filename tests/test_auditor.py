@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import re
+import socket
 import unittest
 from email.message import Message
 from io import BytesIO
@@ -10,7 +11,9 @@ from urllib.error import HTTPError
 from unittest.mock import patch
 
 from security_headers_auditor.auditor import (
+    TargetAddressBoundaryError,
     _redirect_is_allowed,
+    _ensure_public_target,
     audit_headers,
     fetch_headers,
     normalize_target,
@@ -100,6 +103,47 @@ class TargetHandlingTests(unittest.TestCase):
                 "https://other.example.test/final",
             )
         )
+
+    def test_workspace_public_scope_rejects_non_global_addresses(self):
+        for target in (
+            "http://127.0.0.1/",
+            "http://169.254.169.254/",
+            "http://10.0.0.1/",
+            "http://[::1]/",
+        ):
+            with self.subTest(target=target):
+                with self.assertRaises(TargetAddressBoundaryError):
+                    _ensure_public_target(target)
+
+    def test_workspace_public_scope_accepts_resolved_global_address(self):
+        with patch(
+            "security_headers_auditor.auditor.socket.getaddrinfo",
+            return_value=[
+                (
+                    2,
+                    1,
+                    6,
+                    "",
+                    ("93.184.216.34", 443),
+                )
+            ],
+        ):
+            _ensure_public_target("https://example.test/")
+
+    def test_workspace_public_scope_revalidates_before_connection(self):
+        global_resolution = [
+            (socket.AF_INET, socket.SOCK_STREAM, 6, "", ("93.184.216.34", 443))
+        ]
+        rebinding_resolution = [
+            (socket.AF_INET, socket.SOCK_STREAM, 6, "", ("127.0.0.1", 443))
+        ]
+        with patch(
+            "security_headers_auditor.auditor.socket.getaddrinfo",
+            side_effect=[global_resolution, rebinding_resolution],
+        ) as resolver:
+            with self.assertRaises(TargetAddressBoundaryError):
+                fetch_headers("https://example.test/", allow_private_targets=False)
+        self.assertEqual(resolver.call_count, 2)
         self.assertFalse(
             _redirect_is_allowed(
                 "https://example.test:8443/start",
@@ -364,7 +408,7 @@ class ReportRegressionTests(unittest.TestCase):
     def test_markdown_report_records_profile_and_research(self):
         report = render_markdown([self._result("brochure")])
         self.assertIn("Methodology version: `0.4.0`", report)
-        self.assertIn("Evidence mapping set: `2026.07`", report)
+        self.assertIn("Evidence mapping set: `2026.07.1`", report)
         self.assertIn("### Assurance Controls", report)
         self.assertIn("### Profile Decision", report)
         self.assertIn(
@@ -376,7 +420,7 @@ class ReportRegressionTests(unittest.TestCase):
     def test_json_report_exposes_methodology_and_profile(self):
         payload = json.loads(render_json([self._result("api")]))
         self.assertEqual(payload["methodology_version"], "0.4.0")
-        self.assertEqual(payload["mapping_set_version"], "2026.07")
+        self.assertEqual(payload["mapping_set_version"], "2026.07.1")
         self.assertEqual(payload["results"][0]["selected_profile"], "api")
         self.assertEqual(payload["results"][0]["score"], 100)
 

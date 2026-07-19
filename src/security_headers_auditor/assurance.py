@@ -7,7 +7,7 @@ from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any, Callable
 
-from . import __version__
+from . import METHODOLOGY_VERSION
 from .assurance_controls import AssuranceExpectation, parse_expectation
 from .auditor import AuditResult, audit_headers
 from .catalog import DISCLOSURE_HEADERS, RULES_BY_KEY
@@ -180,9 +180,10 @@ def parse_policy(payload: dict[str, Any]) -> AssurancePolicy:
             f"Unsupported policy schema {schema_version}; expected {POLICY_SCHEMA_VERSION}."
         )
     methodology_version = _required_string(payload, "methodology_version", "policy")
-    if methodology_version != __version__:
+    if methodology_version != METHODOLOGY_VERSION:
         raise PolicyConfigurationError(
-            f"Policy methodology {methodology_version} does not match tool {__version__}."
+            "Policy methodology "
+            f"{methodology_version} does not match {METHODOLOGY_VERSION}."
         )
     name = _required_string(payload, "name", "policy")
     defaults_payload = payload.get("defaults", {})
@@ -253,7 +254,7 @@ def run_assurance(
             operational_errors.append(str(exc))
 
     return AssuranceRun(
-        methodology_version=__version__,
+        methodology_version=METHODOLOGY_VERSION,
         mapping_set_version=MAPPING_SET_VERSION,
         policy_name=policy.name,
         policy_schema_version=policy.schema_version,
@@ -318,9 +319,10 @@ def validate_baseline(payload: dict[str, Any]) -> str:
             f"{BASELINE_SCHEMA_VERSION}."
         )
     methodology = payload.get("methodology_version")
-    if methodology != __version__:
+    if methodology != METHODOLOGY_VERSION:
         raise BaselineCompatibilityError(
-            f"Baseline methodology {methodology!r} does not match tool {__version__}; "
+            "Baseline methodology "
+            f"{methodology!r} does not match {METHODOLOGY_VERSION}; "
             "review the methodology change and create a new approved baseline."
         )
     mapping_version = payload.get("mapping_set_version")
