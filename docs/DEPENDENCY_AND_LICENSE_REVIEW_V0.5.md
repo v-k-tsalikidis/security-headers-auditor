@@ -36,8 +36,9 @@ advice.
 
 - CI and release workflows pin Actions by immutable commit ID, with the major
   version recorded in comments for reviewability.
-- The release workflow pins the audited Python build toolchain, builds without
-  isolation, verifies the wheel's UI and notice files, creates SHA-256 checksums,
-  and produces a GitHub Sigstore/SLSA provenance attestation before publication.
+- The release workflow is configured to pin the audited Python build toolchain,
+  build without isolation, verify the wheel's UI and notice files, create
+  SHA-256 checksums, and produce a GitHub Sigstore/SLSA provenance attestation
+  before publication. Its manual dry run remains a release-gate requirement.
 - A future dependency, license, lockfile, or build-tool update requires this
   review to be rerun and its release impact recorded.

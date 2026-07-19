@@ -2,7 +2,8 @@
 
 ## Release Classification
 
-Current classification: **design and implementation in progress**.
+Current classification: **release candidate; signed-artifact workflow
+verification pending**.
 
 The project must not be described as v0.5 complete until every applicable gate
 below has recorded evidence.
@@ -72,10 +73,14 @@ below has recorded evidence.
   passes within documented limits.
 - [x] Built UI is packaged in wheel and works from an offline install.
 - [x] Dependency and license review complete.
-- [ ] GitHub Actions supported Python and Node matrix is green.
-- [ ] README, tutorial, screenshots, and release notes match actual behavior.
-- [ ] Repository diff contains no reports, secrets, databases, caches, or
+- [x] GitHub Actions supported Python and Node matrix is green (CI run 13 for
+  commit `1df577b`, 2026-07-19).
+- [x] README, tutorial, screenshots, and release notes match actual behavior.
+- [x] Repository diff contains no reports, secrets, databases, caches, or
   unrelated files.
+- [ ] Manually dispatched signed-artifact workflow succeeds and its GitHub
+  provenance attestation is verified before creating the public v0.5.0 tag and
+  release.
 
 The project may be described as v0.5 complete only when every applicable item is
 checked and evidenced. Any non-applicable item requires written rationale.

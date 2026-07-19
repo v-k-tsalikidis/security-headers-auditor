@@ -250,9 +250,9 @@ override, redirect boundaries, redaction, escaping, and offline report constrain
 
 A release is not labelled complete until automated tests, the Python CI matrix,
 desktop/mobile browser QA, accessibility checks, documentation, and the intended
-repository diff have verified evidence. A tag-triggered release builds the wheel
-and source distribution, publishes SHA-256 checksums, and records a GitHub
-artifact provenance attestation before publication.
+repository diff have verified evidence. A tag-triggered release is configured to
+build the wheel and source distribution, publish SHA-256 checksums, and record a
+GitHub artifact provenance attestation before publication.
 
 ## Authorized Use
 
