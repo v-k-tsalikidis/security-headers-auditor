@@ -23,8 +23,10 @@ official guidance, and research used by the implementation.
 8. Attach versioned compliance-supporting evidence with explicit limitations.
 9. When policy mode is active, evaluate thresholds and required controls.
 10. When an approved baseline is supplied, detect profile, score, and control regressions.
-11. Redact URL query strings and fragments unless the operator explicitly retains them.
-12. Render human-readable or CI-native output.
+11. When route assurance is supplied, compare exactly one explicit route manifest
+    with its separately approved, data-minimized route baseline.
+12. Redact URL query strings and fragments unless the operator explicitly retains them.
+13. Render human-readable or CI-native output.
 
 ## Scoring
 
@@ -56,6 +58,8 @@ vulnerability count, compliance decision, or proof that the application is secur
 - Cross-origin isolation readiness does not prove runtime state or dependency compatibility.
 - Policy violations and regressions are separate from the profile score.
 - Baselines are approved comparison states, not waivers.
+- Route baselines detect drift only within their exact, explicitly declared
+  route scope; they do not discover coverage or establish a policy pass.
 - CSP, caching, and cross-origin policies require application-specific validation before deployment.
 
 See [Privacy, Accessibility, and Authorization](PRIVACY_ACCESSIBILITY_AUTHORIZATION.md)

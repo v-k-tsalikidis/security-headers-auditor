@@ -95,6 +95,40 @@ controlled evidence store. See the
 [manifest schema](docs/schemas/route-comparison.schema.json) and
 [decision record](docs/adr/0005-controlled-route-comparison.md).
 
+## Controlled Route Assurance
+
+Route comparison can also detect drift against an explicitly reviewed baseline.
+This stays separate from the target-policy baseline: it covers exactly one
+same-origin, 2–25 route manifest and never discovers routes.
+
+Create a candidate from a complete run, review it through normal change control,
+then store it as the approved baseline in a controlled location:
+
+```bash
+security-headers-auditor \
+  --route-comparison examples/route-comparison.json \
+  --write-route-baseline candidates/portal-routes.json \
+  --format json \
+  --output reports/portal-route-candidate.json
+```
+
+An existing candidate path is never overwritten. After review, enforce the
+baseline in CI:
+
+```bash
+security-headers-auditor \
+  --route-comparison examples/route-comparison.json \
+  --route-baseline approved/portal-routes.json \
+  --format json \
+  --output reports/portal-route-assurance.json
+```
+
+Scope, methodology, mapping-set, route ID, path, or declared-profile changes
+are incompatible until reviewed and re-baselined. A route baseline is a drift
+comparison state, not a waiver, vulnerability verdict, compliance decision, or
+proof of browser behaviour. See the [baseline schema](docs/schemas/route-assurance-baseline.schema.json)
+and [ADR 0007](docs/adr/0007-controlled-route-assurance.md).
+
 ## CSP Parsing Depth
 
 The CSP evaluator now retains the first duplicate directive according to CSP
@@ -275,6 +309,7 @@ The implementation is governed by:
 - [v0.4 Methodology Specification](docs/V0.4_METHODOLOGY_SPECIFICATION.md)
 - [v0.5 Workspace Methodology Specification](docs/V0.5_METHODOLOGY_SPECIFICATION.md)
 - [v0.6 Methodology and Delivery Specification](docs/V0.6_METHODOLOGY_SPECIFICATION.md)
+- [v0.7 Controlled Route Assurance Specification](docs/V0.7_METHODOLOGY_SPECIFICATION.md)
 - [v0.5 Workspace Tutorial](docs/V0.5_WORKSPACE_TUTORIAL.md)
 - [Continuous Assurance Guide](docs/CONTINUOUS_ASSURANCE.md)
 - [v0.3 Methodology Specification](docs/V0.3_METHODOLOGY_SPECIFICATION.md)
@@ -336,8 +371,8 @@ See [DISCLAIMER.md](DISCLAIMER.md).
 - [x] Add optional machine-readable profile-definition export.
 - [x] Add controlled multi-response assessment for route-level profile comparison.
 - [x] Add CSP parsing depth without claiming full browser-policy validation.
-- [ ] v0.7: add approved, data-minimized route baselines for controlled
-  route-level drift assurance.
+- [ ] v0.7: release approved, data-minimized route baselines for controlled
+  route-level drift assurance after its evidence gate is complete.
 - [ ] v0.8 (conditional): add an offline-verifiable portable review-evidence
   capsule only after v0.7 proves useful in a real review workflow.
 

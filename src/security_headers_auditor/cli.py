@@ -19,11 +19,14 @@ from .ci_report import render_assurance_json, render_junit, render_sarif
 from .profile_export import render_profile_definition_export
 from .report import render_html, render_json, render_markdown
 from .route_comparison import (
+    RouteBaselineCompatibilityError,
     RouteComparisonConfigurationError,
+    load_route_baseline,
     load_route_comparison,
-    render_route_comparison_json,
-    render_route_comparison_markdown,
-    run_route_comparison,
+    render_route_assurance_json,
+    render_route_assurance_markdown,
+    run_route_assurance,
+    write_route_baseline,
 )
 
 
@@ -80,6 +83,24 @@ def build_parser() -> argparse.ArgumentParser:
         help=(
             "Assess the explicit same-origin routes in a versioned comparison "
             "manifest. It cannot be combined with targets, policy, or audit options."
+        ),
+    )
+    parser.add_argument(
+        "--route-baseline",
+        type=Path,
+        metavar="PATH",
+        help=(
+            "Compare a route-comparison run with an explicitly reviewed route baseline. "
+            "Requires --route-comparison."
+        ),
+    )
+    parser.add_argument(
+        "--write-route-baseline",
+        type=Path,
+        metavar="PATH",
+        help=(
+            "Write a new route-baseline candidate from a complete route-comparison run. "
+            "Review it before using it with --route-baseline."
         ),
     )
     parser.add_argument(
@@ -183,6 +204,9 @@ def main(argv: list[str] | None = None) -> int:
     if args.route_comparison:
         _validate_route_comparison_mode(parser, args, resolved_argv)
         return _run_route_comparison_mode(args)
+
+    if args.route_baseline or args.write_route_baseline:
+        parser.error("--route-baseline and --write-route-baseline require --route-comparison.")
 
     if args.policy:
         if args.targets or args.input_file:
@@ -316,20 +340,26 @@ def _validate_route_comparison_mode(
         )
     if args.format not in {"markdown", "json"}:
         parser.error("--route-comparison supports only --format markdown or json.")
+    if args.route_baseline and args.write_route_baseline:
+        parser.error(
+            "Use either --route-baseline or --write-route-baseline; review candidates before enforcement."
+        )
 
 
 def _run_route_comparison_mode(args: argparse.Namespace) -> int:
     try:
         config = load_route_comparison(args.route_comparison)
-    except RouteComparisonConfigurationError as exc:
+        baseline = load_route_baseline(args.route_baseline) if args.route_baseline else None
+        run = run_route_assurance(config, baseline=baseline)
+        if args.write_route_baseline:
+            write_route_baseline(args.write_route_baseline, run.comparison)
+    except (RouteComparisonConfigurationError, RouteBaselineCompatibilityError) as exc:
         print(f"Configuration error: {exc}", file=sys.stderr)
         return 2
-
-    run = run_route_comparison(config)
     rendered = (
-        render_route_comparison_json(run)
+        render_route_assurance_json(run)
         if args.format == "json"
-        else render_route_comparison_markdown(run)
+        else render_route_assurance_markdown(run)
     )
     _write_output(args.output, rendered)
     return run.exit_code

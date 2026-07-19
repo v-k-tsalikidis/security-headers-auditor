@@ -18,11 +18,19 @@ from security_headers_auditor.auditor import audit_headers
 from security_headers_auditor.cli import main
 from security_headers_auditor.route_comparison import (
     MAX_ROUTE_COUNT,
+    RouteBaselineCompatibilityError,
     RouteComparisonConfigurationError,
+    create_route_baseline,
+    compare_route_baseline,
     parse_route_comparison,
+    render_route_assurance_json,
     render_route_comparison_json,
+    route_assurance_dict,
     route_comparison_dict,
+    run_route_assurance,
     run_route_comparison,
+    validate_route_baseline,
+    write_route_baseline,
 )
 
 
@@ -230,6 +238,114 @@ class RouteComparisonRunTests(unittest.TestCase):
         )
 
 
+class RouteAssuranceTests(unittest.TestCase):
+    def setUp(self):
+        strong_app = fixture("app")
+        weak_app = fixture("app")
+        weak_headers = dict(weak_app["headers"])
+        weak_headers.pop("Content-Security-Policy")
+        weak_app = {**weak_app, "headers": weak_headers}
+        self.config = parse_route_comparison(comparison_payload())
+        self.strong_audit = route_audit(
+            {
+                "/dashboard": strong_app,
+                "/settings": strong_app,
+                "/api/status": fixture("api"),
+            }
+        )
+        self.regressed_audit = route_audit(
+            {
+                "/dashboard": strong_app,
+                "/settings": weak_app,
+                "/api/status": fixture("api"),
+            }
+        )
+
+    def test_candidate_baseline_and_matching_run_are_compact_and_deterministic(self):
+        initial = run_route_comparison(self.config, audit_function=self.strong_audit)
+        baseline = create_route_baseline(initial)
+        validate_route_baseline(baseline)
+        schema = json.loads(
+            (
+                Path(__file__).parents[1]
+                / "docs"
+                / "schemas"
+                / "route-assurance-baseline.schema.json"
+            ).read_text(encoding="utf-8")
+        )
+        Draft202012Validator.check_schema(schema)
+        Draft202012Validator(schema).validate(baseline)
+
+        run = run_route_assurance(
+            self.config,
+            baseline=baseline,
+            audit_function=self.strong_audit,
+        )
+        first = render_route_assurance_json(run)
+        second = render_route_assurance_json(run)
+        payload = route_assurance_dict(run)
+
+        self.assertEqual(run.outcome, "passed")
+        self.assertEqual(run.exit_code, 0)
+        self.assertEqual(first, second)
+        self.assertEqual(payload["artifact"], "security-headers-auditor.route-assurance")
+        self.assertEqual(payload["route_assurance"]["baseline_schema_version"], "1.0")
+        self.assertFalse(payload["route_assurance"]["regressions"])
+        self.assertNotIn("fixture-value", first)
+        self.assertNotIn("default-src 'self'", first)
+
+    def test_regressed_score_and_control_fail_route_assurance_without_operational_error(self):
+        baseline = create_route_baseline(
+            run_route_comparison(self.config, audit_function=self.strong_audit)
+        )
+        run = run_route_assurance(
+            self.config,
+            baseline=baseline,
+            audit_function=self.regressed_audit,
+        )
+
+        signals = {(item.code, item.control_key) for item in run.regressions}
+        self.assertEqual(run.outcome, "failed")
+        self.assertEqual(run.exit_code, 1)
+        self.assertIn(("score.regressed", None), signals)
+        self.assertIn(("control.status_regressed", "content-security-policy"), signals)
+        self.assertFalse(run.comparison.operational_errors)
+
+    def test_baseline_scope_or_version_tampering_is_rejected_before_comparison(self):
+        baseline = create_route_baseline(
+            run_route_comparison(self.config, audit_function=self.strong_audit)
+        )
+        tampered_version = {**baseline, "methodology_version": "future"}
+        with self.assertRaises(RouteBaselineCompatibilityError):
+            validate_route_baseline(tampered_version)
+
+        tampered_scope = json.loads(json.dumps(baseline))
+        tampered_scope["manifest"]["routes"][0]["path"] = "/other"
+        with self.assertRaises(RouteBaselineCompatibilityError):
+            compare_route_baseline(
+                run_route_comparison(self.config, audit_function=self.strong_audit),
+                tampered_scope,
+            )
+
+    def test_candidate_rejects_partial_run_and_never_overwrites_existing_path(self):
+        def failing_audit(target: str, **kwargs):
+            result = self.strong_audit(target, **kwargs)
+            if urlparse(target).path == "/settings":
+                return replace(result, findings=[], error="fixture transport failure")
+            return result
+
+        partial = run_route_comparison(self.config, audit_function=failing_audit)
+        with self.assertRaises(RouteBaselineCompatibilityError):
+            create_route_baseline(partial)
+
+        complete = run_route_comparison(self.config, audit_function=self.strong_audit)
+        with TemporaryDirectory() as temporary_directory:
+            path = Path(temporary_directory) / "candidate.json"
+            write_route_baseline(path, complete)
+            with self.assertRaises(RouteBaselineCompatibilityError):
+                write_route_baseline(path, complete)
+
+
 class RouteComparisonCliTests(unittest.TestCase):
     def test_cli_runs_only_declared_routes_against_loopback_fixture(self):
         fixtures = {
@@ -303,13 +419,13 @@ class RouteComparisonCliTests(unittest.TestCase):
                 "/api/status": fixture("api"),
             }
         )
-        run = run_route_comparison(config, audit_function=fixture_audit)
+        run = run_route_assurance(config, audit_function=fixture_audit)
         with TemporaryDirectory() as temporary_directory:
             manifest = Path(temporary_directory) / "routes.json"
             output = Path(temporary_directory) / "comparison.json"
             manifest.write_text(json.dumps(comparison_payload()), encoding="utf-8")
             with patch(
-                "security_headers_auditor.cli.run_route_comparison",
+                "security_headers_auditor.cli.run_route_assurance",
                 return_value=run,
             ) as runner:
                 self.assertEqual(
@@ -328,13 +444,54 @@ class RouteComparisonCliTests(unittest.TestCase):
             runner.assert_called_once()
             payload = json.loads(output.read_text(encoding="utf-8"))
             self.assertEqual(payload["name"], "fixture portal routes")
+            self.assertEqual(payload["artifact"], "security-headers-auditor.route-assurance")
             self.assertNotIn("fixture-value", output.read_text(encoding="utf-8"))
+
+    def test_cli_writes_a_new_route_baseline_candidate_without_network_reuse(self):
+        config = parse_route_comparison(comparison_payload())
+        run = run_route_assurance(
+            config,
+            audit_function=route_audit(
+                {
+                    "/dashboard": fixture("app"),
+                    "/settings": fixture("app"),
+                    "/api/status": fixture("api"),
+                }
+            ),
+        )
+        with TemporaryDirectory() as temporary_directory:
+            directory = Path(temporary_directory)
+            manifest = directory / "routes.json"
+            candidate = directory / "candidate.json"
+            output = directory / "candidate-report.md"
+            manifest.write_text(json.dumps(comparison_payload()), encoding="utf-8")
+            with patch(
+                "security_headers_auditor.cli.run_route_assurance",
+                return_value=run,
+            ) as runner:
+                self.assertEqual(
+                    main(
+                        [
+                            "--route-comparison",
+                            str(manifest),
+                            "--write-route-baseline",
+                            str(candidate),
+                            "--output",
+                            str(output),
+                        ]
+                    ),
+                    0,
+                )
+            runner.assert_called_once()
+            baseline = json.loads(candidate.read_text(encoding="utf-8"))
+            validate_route_baseline(baseline)
+            self.assertNotIn("fixture-value", candidate.read_text(encoding="utf-8"))
 
     def test_invalid_manifest_returns_configuration_error_before_run(self):
         with TemporaryDirectory() as temporary_directory:
             manifest = Path(temporary_directory) / "invalid.json"
             manifest.write_text("{not json", encoding="utf-8")
-            with patch("security_headers_auditor.cli.run_route_comparison") as run:
+            with patch("security_headers_auditor.cli.run_route_assurance") as run:
                 with redirect_stderr(StringIO()):
                     self.assertEqual(main(["--route-comparison", str(manifest)]), 2)
             run.assert_not_called()
@@ -348,6 +505,14 @@ class RouteComparisonCliTests(unittest.TestCase):
                 ["--route-comparison", str(manifest), "--policy", "policy.json"],
                 ["--route-comparison", str(manifest), "--profile", "app"],
                 ["--route-comparison", str(manifest), "--format", "html"],
+                [
+                    "--route-comparison",
+                    str(manifest),
+                    "--route-baseline",
+                    "baseline.json",
+                    "--write-route-baseline",
+                    "candidate.json",
+                ],
             ):
                 with self.subTest(arguments=arguments):
                     with redirect_stderr(StringIO()):

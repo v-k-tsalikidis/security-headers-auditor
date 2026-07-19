@@ -91,6 +91,39 @@ When a regression is intentional:
 
 Never overwrite the baseline automatically after a failed run.
 
+## Controlled Route Assurance
+
+Use route assurance when one authorized origin has a small, known set of
+security-relevant routes and reviewers need to identify drift between releases.
+It is deliberately not an extension of the target-policy JSON: a route manifest
+is a bounded comparison scope, while a policy expresses target-specific
+requirements.
+
+Create a candidate only after a complete comparison run, review the candidate
+and manifest diff, then use the approved artifact on later runs:
+
+```bash
+security-headers-auditor \
+  --route-comparison routes.json \
+  --write-route-baseline candidates/routes.json \
+  --format json \
+  --output reports/routes-candidate.json
+
+security-headers-auditor \
+  --route-comparison routes.json \
+  --route-baseline approved/routes.json \
+  --format json \
+  --output reports/routes-assurance.json
+```
+
+The candidate writer refuses an existing path, and the CLI rejects using a
+baseline and writing a replacement in the same invocation. A mismatch in
+manifest scope, methodology, or mapping set is an operational configuration
+error; score and scored-control regression is an assurance failure. Route
+artifacts include no raw response-header values. They remain security evidence
+and should receive the same access control and retention review as other CI
+artifacts.
+
 ## Methodology Migrations
 
 Methodology versions are deliberate compatibility boundaries. Version `0.5.0`

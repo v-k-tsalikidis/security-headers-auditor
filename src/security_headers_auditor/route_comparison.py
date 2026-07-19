@@ -16,11 +16,30 @@ from .profiles import ProfileName
 
 ROUTE_COMPARISON_SCHEMA_VERSION = "1.0"
 ROUTE_COMPARISON_ARTIFACT = "security-headers-auditor.route-comparison"
+ROUTE_BASELINE_SCHEMA_VERSION = "1.0"
+ROUTE_BASELINE_ARTIFACT = "security-headers-auditor.route-assurance-baseline"
+ROUTE_ASSURANCE_ARTIFACT = "security-headers-auditor.route-assurance"
 MAX_ROUTE_COUNT = 25
+_BASELINE_STATUSES = {
+    "pass",
+    "info",
+    "observed",
+    "not_applicable",
+    "review",
+    "warning",
+    "missing",
+    "error",
+}
+_BASELINE_SEVERITIES = {"info", "low", "medium", "high"}
+_ACTIONABLE_STATUSES = {"missing", "warning", "review"}
 
 
 class RouteComparisonConfigurationError(ValueError):
     """Raised when a route-comparison manifest exceeds its safe contract."""
+
+
+class RouteBaselineCompatibilityError(ValueError):
+    """Raised when a route baseline cannot be safely compared."""
 
 
 @dataclass(frozen=True)
@@ -74,6 +93,40 @@ class RouteComparisonRun:
         return 2 if self.operational_errors else 0
 
 
+@dataclass(frozen=True)
+class RouteRegression:
+    route_id: str
+    code: str
+    severity: str
+    control_key: str | None
+    previous: str | int | float | None
+    current: str | int | float | None
+    message: str
+
+
+@dataclass(frozen=True)
+class RouteAssuranceRun:
+    comparison: RouteComparisonRun
+    baseline_schema_version: str | None
+    regressions: tuple[RouteRegression, ...]
+
+    @property
+    def outcome(self) -> str:
+        if self.comparison.operational_errors:
+            return "operational_error"
+        if self.regressions:
+            return "failed"
+        return "passed"
+
+    @property
+    def exit_code(self) -> int:
+        if self.comparison.operational_errors:
+            return 2
+        if self.regressions:
+            return 1
+        return 0
+
+
 AuditFunction = Callable[..., AuditResult]
 
 
@@ -91,6 +144,23 @@ def load_route_comparison(path: Path) -> RouteComparisonConfig:
             f"line {exc.lineno}, column {exc.colno}."
         ) from exc
     return parse_route_comparison(payload)
+
+
+def load_route_baseline(path: Path) -> dict[str, Any]:
+    """Load a separately approved, data-minimized route baseline."""
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except OSError as exc:
+        raise RouteBaselineCompatibilityError(
+            f"Cannot read route baseline {path}: {exc}"
+        ) from exc
+    except json.JSONDecodeError as exc:
+        raise RouteBaselineCompatibilityError(
+            "Route baseline is not valid JSON: "
+            f"line {exc.lineno}, column {exc.colno}."
+        ) from exc
+    validate_route_baseline(payload)
+    return payload
 
 
 def parse_route_comparison(payload: dict[str, Any]) -> RouteComparisonConfig:
@@ -158,6 +228,221 @@ def run_route_comparison(
     )
 
 
+def run_route_assurance(
+    config: RouteComparisonConfig,
+    baseline: dict[str, Any] | None = None,
+    audit_function: AuditFunction = audit_headers,
+) -> RouteAssuranceRun:
+    """Compare one explicit route set with an optionally approved baseline."""
+    comparison = run_route_comparison(config, audit_function=audit_function)
+    baseline_schema_version: str | None = None
+    regressions: tuple[RouteRegression, ...] = ()
+    if baseline is not None and not comparison.operational_errors:
+        baseline_schema_version = validate_route_baseline(baseline)
+        regressions = compare_route_baseline(comparison, baseline)
+    return RouteAssuranceRun(
+        comparison=comparison,
+        baseline_schema_version=baseline_schema_version,
+        regressions=regressions,
+    )
+
+
+def create_route_baseline(run: RouteComparisonRun) -> dict[str, Any]:
+    """Create a candidate baseline only from a complete route run.
+
+    The candidate records drift evidence, not a security pass or risk acceptance.
+    Operators must review and explicitly approve it before using it as a baseline.
+    """
+    if run.operational_errors:
+        raise RouteBaselineCompatibilityError(
+            "A route baseline candidate requires a complete run with no operational errors."
+        )
+    return {
+        "schema_version": ROUTE_BASELINE_SCHEMA_VERSION,
+        "artifact": ROUTE_BASELINE_ARTIFACT,
+        "methodology_version": METHODOLOGY_VERSION,
+        "mapping_set_version": MAPPING_SET_VERSION,
+        "manifest": _manifest_dict(run.config),
+        "routes": {
+            assessment.route.id: _baseline_route(assessment)
+            for assessment in sorted(run.assessments, key=lambda item: item.route.id)
+        },
+    }
+
+
+def write_route_baseline(path: Path, run: RouteComparisonRun) -> None:
+    """Write one new candidate baseline without replacing an approved artifact."""
+    if path.exists():
+        raise RouteBaselineCompatibilityError(
+            f"Route baseline candidate {path} already exists; review it or choose a new path."
+        )
+    payload = create_route_baseline(run)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+
+
+def validate_route_baseline(payload: dict[str, Any]) -> str:
+    """Validate a route-baseline artifact without inferring future semantics."""
+    if not isinstance(payload, dict):
+        raise RouteBaselineCompatibilityError("Route baseline root must be a JSON object.")
+    _reject_baseline_unknown_keys(
+        payload,
+        {
+            "schema_version",
+            "artifact",
+            "methodology_version",
+            "mapping_set_version",
+            "manifest",
+            "routes",
+        },
+        "route baseline",
+    )
+    _require_baseline_value(
+        payload, "schema_version", ROUTE_BASELINE_SCHEMA_VERSION, "route baseline"
+    )
+    _require_baseline_value(
+        payload, "artifact", ROUTE_BASELINE_ARTIFACT, "route baseline"
+    )
+    _require_baseline_value(
+        payload, "methodology_version", METHODOLOGY_VERSION, "route baseline"
+    )
+    _require_baseline_value(
+        payload, "mapping_set_version", MAPPING_SET_VERSION, "route baseline"
+    )
+    manifest = payload.get("manifest")
+    if not isinstance(manifest, dict):
+        raise RouteBaselineCompatibilityError("Route baseline manifest must be a JSON object.")
+    try:
+        config = parse_route_comparison(manifest)
+    except RouteComparisonConfigurationError as exc:
+        raise RouteBaselineCompatibilityError(
+            f"Route baseline manifest is invalid: {exc}"
+        ) from exc
+    routes = payload.get("routes")
+    if not isinstance(routes, dict):
+        raise RouteBaselineCompatibilityError("Route baseline routes must be a JSON object.")
+    expected_routes = {route.id: route for route in config.routes}
+    if set(routes) != set(expected_routes):
+        raise RouteBaselineCompatibilityError(
+            "Route baseline route ids do not exactly match the baseline manifest."
+        )
+    for route_id, definition in expected_routes.items():
+        _validate_baseline_route(route_id, routes[route_id], definition)
+    return ROUTE_BASELINE_SCHEMA_VERSION
+
+
+def compare_route_baseline(
+    run: RouteComparisonRun,
+    baseline: dict[str, Any],
+) -> tuple[RouteRegression, ...]:
+    """Return deterministic route drift signals for an approved baseline."""
+    validate_route_baseline(baseline)
+    if baseline["manifest"] != _manifest_dict(run.config):
+        raise RouteBaselineCompatibilityError(
+            "Route baseline manifest does not match the current explicit route scope; "
+            "review and create a new baseline."
+        )
+    if run.operational_errors:
+        return ()
+
+    regressions: list[RouteRegression] = []
+    baseline_routes = baseline["routes"]
+    for assessment in sorted(run.assessments, key=lambda item: item.route.id):
+        route_id = assessment.route.id
+        before = baseline_routes[route_id]
+        current = _baseline_route(assessment)
+        if current["score"] < before["score"]:
+            regressions.append(
+                RouteRegression(
+                    route_id=route_id,
+                    code="score.regressed",
+                    severity="high",
+                    control_key=None,
+                    previous=before["score"],
+                    current=current["score"],
+                    message="Route score decreased from the approved baseline.",
+                )
+            )
+
+        previous_controls = before["scored_controls"]
+        current_controls = current["scored_controls"]
+        for control_key, after in current_controls.items():
+            previous = previous_controls.get(control_key)
+            if previous is None:
+                if after["status"] in _ACTIONABLE_STATUSES:
+                    regressions.append(
+                        RouteRegression(
+                            route_id=route_id,
+                            code="control.new_actionable_finding",
+                            severity=after["severity"],
+                            control_key=control_key,
+                            previous=None,
+                            current=after["status"],
+                            message=(
+                                "A new actionable scored-control finding is not in the "
+                                "approved route baseline."
+                            ),
+                        )
+                    )
+                continue
+            if _status_rank(after["status"]) > _status_rank(previous["status"]):
+                regressions.append(
+                    RouteRegression(
+                        route_id=route_id,
+                        code="control.status_regressed",
+                        severity=after["severity"],
+                        control_key=control_key,
+                        previous=previous["status"],
+                        current=after["status"],
+                        message="Scored-control status is worse than the approved baseline.",
+                    )
+                )
+                continue
+            if _severity_rank(after["severity"]) > _severity_rank(previous["severity"]):
+                regressions.append(
+                    RouteRegression(
+                        route_id=route_id,
+                        code="control.severity_regressed",
+                        severity=after["severity"],
+                        control_key=control_key,
+                        previous=previous["severity"],
+                        current=after["severity"],
+                        message="Scored-control severity is worse than the approved baseline.",
+                    )
+                )
+                continue
+            if after["points"] < previous["points"]:
+                regressions.append(
+                    RouteRegression(
+                        route_id=route_id,
+                        code="control.points_regressed",
+                        severity=after["severity"],
+                        control_key=control_key,
+                        previous=previous["points"],
+                        current=after["points"],
+                        message=(
+                            "Scored-control points decreased from the approved route baseline."
+                        ),
+                    )
+                )
+        for control_key in sorted(set(previous_controls) - set(current_controls)):
+            regressions.append(
+                RouteRegression(
+                    route_id=route_id,
+                    code="control.missing_from_run",
+                    severity="high",
+                    control_key=control_key,
+                    previous=previous_controls[control_key]["status"],
+                    current=None,
+                    message=(
+                        "An approved scored control is missing from a route run with the same "
+                        "methodology version."
+                    ),
+                )
+            )
+    return tuple(_deduplicate_route_regressions(regressions))
+
+
 def route_comparison_dict(run: RouteComparisonRun) -> dict[str, Any]:
     """Return a compact report that deliberately omits raw header values."""
     profile_groups = [
@@ -215,6 +500,34 @@ def route_comparison_dict(run: RouteComparisonRun) -> dict[str, Any]:
 
 def render_route_comparison_json(run: RouteComparisonRun) -> str:
     return json.dumps(route_comparison_dict(run), indent=2, sort_keys=True) + "\n"
+
+
+def route_assurance_dict(run: RouteAssuranceRun) -> dict[str, Any]:
+    """Return compact, data-minimized route drift evidence for CI and review."""
+    payload = route_comparison_dict(run.comparison)
+    payload["artifact"] = ROUTE_ASSURANCE_ARTIFACT
+    payload["route_assurance"] = {
+        "baseline_schema_version": run.baseline_schema_version,
+        "outcome": run.outcome,
+        "exit_code": run.exit_code,
+        "regressions": [
+            {
+                "route_id": regression.route_id,
+                "code": regression.code,
+                "severity": regression.severity,
+                "control_key": regression.control_key,
+                "previous": regression.previous,
+                "current": regression.current,
+                "message": regression.message,
+            }
+            for regression in run.regressions
+        ],
+    }
+    return payload
+
+
+def render_route_assurance_json(run: RouteAssuranceRun) -> str:
+    return json.dumps(route_assurance_dict(run), indent=2, sort_keys=True) + "\n"
 
 
 def render_route_comparison_markdown(run: RouteComparisonRun) -> str:
@@ -281,6 +594,197 @@ def render_route_comparison_markdown(run: RouteComparisonRun) -> str:
         ]
     )
     return "\n".join(lines)
+
+
+def render_route_assurance_markdown(run: RouteAssuranceRun) -> str:
+    lines = [render_route_comparison_markdown(run.comparison).rstrip(), "", "## Route Assurance", ""]
+    lines.extend(
+        [
+            f"- Outcome: `{run.outcome}`",
+            (
+                "- Approved baseline: "
+                + (f"schema `{run.baseline_schema_version}`" if run.baseline_schema_version else "not supplied")
+            ),
+        ]
+    )
+    if run.regressions:
+        lines.extend(["", "| Route | Signal | Control | Previous | Current |", "| --- | --- | --- | --- | --- |"])
+        for regression in run.regressions:
+            lines.append(
+                "| "
+                f"`{_escape_markdown(regression.route_id)}` | "
+                f"`{_escape_markdown(regression.code)}` | "
+                f"`{_escape_markdown(regression.control_key or '-')}` | "
+                f"`{_escape_markdown(str(regression.previous)) if regression.previous is not None else '-'}` | "
+                f"`{_escape_markdown(str(regression.current)) if regression.current is not None else '-'}` |"
+            )
+    else:
+        lines.extend(["", "No route-baseline regression was detected."])
+    lines.extend(
+        [
+            "",
+            "A baseline records a reviewed comparison state. It is not a security pass, waiver, compliance decision, or proof of browser behaviour.",
+            "",
+        ]
+    )
+    return "\n".join(lines)
+
+
+def _manifest_dict(config: RouteComparisonConfig) -> dict[str, Any]:
+    """Canonical route scope used for baseline compatibility checks."""
+    return {
+        "schema_version": config.schema_version,
+        "name": config.name,
+        "origin": config.origin,
+        "routes": [
+            {
+                "id": route.id,
+                "path": route.path,
+                "profile": route.profile.value,
+            }
+            for route in sorted(config.routes, key=lambda item: item.id)
+        ],
+    }
+
+
+def _baseline_route(assessment: RouteAssessment) -> dict[str, Any]:
+    result = assessment.result
+    if result.error:
+        raise RouteBaselineCompatibilityError(
+            f"Route {assessment.route.id!r} cannot enter a baseline after an audit error."
+        )
+    return {
+        "path": assessment.route.path,
+        "declared_profile": assessment.route.profile.value,
+        "score": result.score,
+        "scored_controls": {
+            finding.key: {
+                "status": finding.status,
+                "severity": finding.severity,
+                "points": finding.points,
+                "max_points": finding.max_points,
+            }
+            for finding in sorted(result.findings, key=lambda item: item.key)
+            if finding.category == "scored"
+        },
+    }
+
+
+def _validate_baseline_route(
+    route_id: str,
+    payload: Any,
+    definition: RouteDefinition,
+) -> None:
+    if not isinstance(payload, dict):
+        raise RouteBaselineCompatibilityError(
+            f"Route baseline entry {route_id!r} must be a JSON object."
+        )
+    _reject_baseline_unknown_keys(
+        payload,
+        {"path", "declared_profile", "score", "scored_controls"},
+        f"route baseline entry {route_id!r}",
+    )
+    if payload.get("path") != definition.path:
+        raise RouteBaselineCompatibilityError(
+            f"Route baseline entry {route_id!r} does not match its manifest path."
+        )
+    if payload.get("declared_profile") != definition.profile.value:
+        raise RouteBaselineCompatibilityError(
+            f"Route baseline entry {route_id!r} does not match its declared profile."
+        )
+    score = payload.get("score")
+    if isinstance(score, bool) or not isinstance(score, int) or not 0 <= score <= 100:
+        raise RouteBaselineCompatibilityError(
+            f"Route baseline entry {route_id!r} has an invalid score."
+        )
+    controls = payload.get("scored_controls")
+    if not isinstance(controls, dict) or not controls:
+        raise RouteBaselineCompatibilityError(
+            f"Route baseline entry {route_id!r} requires scored controls."
+        )
+    for control_key, control in controls.items():
+        if not isinstance(control_key, str) or not control_key:
+            raise RouteBaselineCompatibilityError(
+                f"Route baseline entry {route_id!r} has an invalid control key."
+            )
+        if not isinstance(control, dict):
+            raise RouteBaselineCompatibilityError(
+                f"Route baseline control {route_id!r}/{control_key!r} must be a JSON object."
+            )
+        _reject_baseline_unknown_keys(
+            control,
+            {"status", "severity", "points", "max_points"},
+            f"route baseline control {route_id!r}/{control_key!r}",
+        )
+        if control.get("status") not in _BASELINE_STATUSES:
+            raise RouteBaselineCompatibilityError(
+                f"Route baseline control {route_id!r}/{control_key!r} has an invalid status."
+            )
+        if control.get("severity") not in _BASELINE_SEVERITIES:
+            raise RouteBaselineCompatibilityError(
+                f"Route baseline control {route_id!r}/{control_key!r} has an invalid severity."
+            )
+        for field in ("points", "max_points"):
+            value = control.get(field)
+            if isinstance(value, bool) or not isinstance(value, (int, float)) or value < 0:
+                raise RouteBaselineCompatibilityError(
+                    f"Route baseline control {route_id!r}/{control_key!r} has an invalid {field}."
+                )
+        if control["points"] > control["max_points"]:
+            raise RouteBaselineCompatibilityError(
+                f"Route baseline control {route_id!r}/{control_key!r} has points above max_points."
+            )
+
+
+def _require_baseline_value(
+    payload: dict[str, Any],
+    field: str,
+    expected: str,
+    context: str,
+) -> None:
+    if payload.get(field) != expected:
+        raise RouteBaselineCompatibilityError(
+            f"{context.capitalize()} {field} {payload.get(field)!r} is incompatible with {expected!r}."
+        )
+
+
+def _reject_baseline_unknown_keys(
+    payload: dict[str, Any],
+    allowed: set[str],
+    context: str,
+) -> None:
+    unknown = set(payload) - allowed
+    if unknown:
+        raise RouteBaselineCompatibilityError(
+            f"Unknown {context} field(s): {', '.join(sorted(unknown))}."
+        )
+
+
+def _status_rank(status: str) -> int:
+    return {
+        "pass": 0,
+        "info": 0,
+        "observed": 0,
+        "not_applicable": 0,
+        "review": 1,
+        "warning": 2,
+        "missing": 3,
+        "error": 4,
+    }.get(status, 2)
+
+
+def _severity_rank(severity: str) -> int:
+    return {"info": 0, "low": 1, "medium": 2, "high": 3}.get(severity, 2)
+
+
+def _deduplicate_route_regressions(
+    regressions: list[RouteRegression],
+) -> list[RouteRegression]:
+    unique: dict[tuple[str, str, str | None], RouteRegression] = {}
+    for regression in regressions:
+        key = (regression.route_id, regression.code, regression.control_key)
+        unique.setdefault(key, regression)
+    return list(unique.values())
 
 
 def _parse_origin(value: str) -> str:
