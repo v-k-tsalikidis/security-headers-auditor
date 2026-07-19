@@ -6,7 +6,7 @@ import argparse
 from pathlib import Path
 
 from .auditor import audit_headers
-from .report import render_json, render_markdown
+from .report import render_html, render_json, render_markdown
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -21,9 +21,34 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument(
         "--format",
-        choices=("markdown", "json"),
+        choices=("markdown", "json", "html"),
         default="markdown",
         help="Report output format.",
+    )
+    parser.add_argument(
+        "--profile",
+        choices=("auto", "app", "api", "brochure"),
+        default="auto",
+        help=(
+            "Endpoint profile. Auto uses conservative response evidence; select a "
+            "profile explicitly when the endpoint purpose is known."
+        ),
+    )
+    parser.add_argument(
+        "--include-query",
+        action="store_true",
+        help=(
+            "Include URL query strings and fragments in reports. They are redacted "
+            "by default because they may contain identifiers or secrets."
+        ),
+    )
+    parser.add_argument(
+        "--allow-cross-origin-redirects",
+        action="store_true",
+        help=(
+            "Follow redirects that leave the original origin. Same-host HTTP-to-HTTPS "
+            "upgrades are allowed by default; use this only for authorized destinations."
+        ),
     )
     parser.add_argument(
         "--output",
@@ -51,8 +76,22 @@ def main(argv: list[str] | None = None) -> int:
     if not targets:
         parser.error("Provide at least one target or --input-file.")
 
-    results = [audit_headers(target, timeout=args.timeout) for target in targets]
-    rendered = render_json(results) if args.format == "json" else render_markdown(results)
+    results = [
+        audit_headers(
+            target,
+            timeout=args.timeout,
+            profile=args.profile,
+            include_query=args.include_query,
+            allow_cross_origin_redirects=args.allow_cross_origin_redirects,
+        )
+        for target in targets
+    ]
+    renderers = {
+        "markdown": render_markdown,
+        "json": render_json,
+        "html": render_html,
+    }
+    rendered = renderers[args.format](results)
 
     if args.output:
         args.output.parent.mkdir(parents=True, exist_ok=True)
@@ -74,4 +113,3 @@ def _read_targets(path: Path) -> list[str]:
 
 if __name__ == "__main__":
     raise SystemExit(main())
-

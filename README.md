@@ -4,41 +4,41 @@
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
 [![Python](https://img.shields.io/badge/python-3.10%2B-3776AB.svg)](pyproject.toml)
 
-Risk-aware, public-safe Python CLI for reviewing common HTTP security headers and producing readable Markdown or JSON reports.
+Context-aware, read-only Python CLI for reviewing HTTP security headers as an
+authenticated web application, API response, or public brochure site.
 
-This project is part of my cybersecurity portfolio. It connects practical web security hygiene, lightweight assessment logic, and clear reporting: what was checked, why it matters, which signals are missing or weak, and what should be reviewed next.
+Security Headers Auditor avoids the universal checklist model. It records why a
+response profile was selected, scores only controls applicable to that profile,
+identifies weak values, and preserves an evidence trail to standards and research.
 
-## Why It Matters
+## Why Context Matters
 
-HTTP security headers are not a complete security program, but they are a useful baseline signal. They help reduce exposure to common web risks such as clickjacking, MIME sniffing, insecure transport, overly broad browser permissions, and weak content isolation.
+A JSON API should not receive the same browser-document penalties as an authenticated
+HTML application. A header can also be present and still be weak. Version 0.3 treats
+applicability, configuration quality, and evidence as separate concerns.
 
-The goal of this project is to provide a small tool that remains understandable while avoiding the common weakness of simple "present/missing" header checkers. A header can exist and still be weak. Some headers are baseline controls; others are contextual and may not belong on every endpoint.
+The result is a transparent engineering assessment:
 
-## What Makes It Different
+- profile-specific 100-point scoring for `app`, `api`, and `brochure`;
+- conservative auto-detection with confidence and decision evidence;
+- explicit `--profile` override when the operator knows the endpoint purpose;
+- partial credit for weak or incomplete values;
+- contextual and disclosure observations outside the score;
+- version-pinned OWASP ASVS 5.0.0 mappings and primary specifications;
+- NIST relationships clearly labelled as control-informed, not compliance proof;
+- Markdown, JSON, and offline self-contained HTML reports;
+- deterministic tests with no remote-site dependency.
 
-- Uses a weighted baseline score instead of a flat header count.
-- Separates baseline controls from contextual checks and information-disclosure observations.
-- Flags weak values, not only missing headers.
-- Keeps the scan read-only: no crawling, exploitation, brute forcing, or intrusive testing.
-- Produces reports that explain the finding and the recommended next review step.
-- Uses public guidance from OWASP, MDN, Mozilla HTTP Observatory, and web.dev as the initial methodology base.
+## Profiles
 
-## Checked Headers
-
-| Area | Header | Purpose |
+| Profile | Intended response | Scored emphasis |
 | --- | --- | --- |
-| Baseline | `Strict-Transport-Security` | Reduces downgrade and protocol-stripping exposure after first HTTPS use. |
-| Baseline | `Content-Security-Policy` | Limits content injection and cross-site scripting blast radius. |
-| Baseline | `X-Content-Type-Options` | Prevents MIME sniffing. |
-| Baseline | `X-Frame-Options` | Provides a legacy clickjacking control. |
-| Baseline | `Referrer-Policy` | Limits URL and query leakage through the `Referer` header. |
-| Baseline | `Permissions-Policy` | Restricts powerful browser features. |
-| Baseline | `Cross-Origin-Opener-Policy` | Reduces cross-origin window interaction risk. |
-| Baseline | `Cross-Origin-Resource-Policy` | Controls whether other origins can read a response as a resource. |
-| Contextual | `Cross-Origin-Embedder-Policy`, `Clear-Site-Data`, `Cache-Control`, `X-DNS-Prefetch-Control`, `X-Permitted-Cross-Domain-Policies` | Reported separately because they depend on endpoint type and compatibility. |
-| Disclosure | `Server`, `X-Powered-By`, selected framework/version headers | Reported as information-disclosure observations. |
+| `app` | Authenticated or stateful HTML application | Transport, CSP, MIME, framing, privacy, permissions, COOP, and CORP |
+| `api` | JSON, GraphQL, or XML response | Transport and authoritative media typing |
+| `brochure` | Public HTML content with limited authenticated state | Transport, CSP, MIME, framing, privacy, and permissions |
 
-See [docs/METHODOLOGY.md](docs/METHODOLOGY.md) for the scoring model and references.
+Auto-detection is deliberately conservative. It cannot prove business purpose.
+Use a manual profile for controlled assessments.
 
 ## Quick Start
 
@@ -48,63 +48,120 @@ source .venv/bin/activate
 python -m pip install -e .
 ```
 
-Audit one target:
+Audit one response with conservative profile detection:
 
 ```bash
-security-headers-auditor https://example.com --format markdown
+security-headers-auditor https://example.com
 ```
 
-Audit multiple targets from a file:
+Audit a known API and produce JSON:
 
 ```bash
-security-headers-auditor --input-file examples/targets.txt --format markdown --output reports/security-headers-report.md
+security-headers-auditor https://api.example.com/status \
+  --profile api \
+  --format json \
+  --output reports/api-report.json
 ```
 
-Generate JSON:
+Generate the offline HTML report:
 
 ```bash
-security-headers-auditor https://example.com --format json --output reports/example-report.json
+security-headers-auditor https://portal.example.com \
+  --profile app \
+  --format html \
+  --output reports/portal-report.html
 ```
 
-## Example Output
+Audit a controlled list:
 
-```text
-Target: https://example.com
-Score: 35/100
-Status: Needs Review
-
-Baseline findings include status, severity, points, evidence, and recommendation.
-Contextual and information-disclosure findings are separated from the score.
+```bash
+security-headers-auditor \
+  --input-file examples/targets.txt \
+  --profile brochure \
+  --format markdown \
+  --output reports/sites.md
 ```
 
-See [examples/sample-report.md](examples/sample-report.md) for a deterministic sample report.
+URL query strings and fragments are redacted in reports by default. Retain them
+only when the output is controlled:
+
+```bash
+security-headers-auditor "https://example.com/path?case=public" --include-query
+```
+
+Redirects that leave the original origin are blocked by default. A same-host
+HTTP-to-HTTPS upgrade remains allowed. Follow an external redirect only when its
+destination is inside the authorized scope:
+
+```bash
+security-headers-auditor https://example.com \
+  --allow-cross-origin-redirects
+```
+
+## Output Model
+
+Every successful result contains:
+
+- requested and selected profile;
+- detection confidence and evidence;
+- score and summary;
+- profile-scored findings with points and applicability;
+- contextual findings;
+- information-disclosure observations;
+- standards and research citations.
+
+The HTML report is one portable file with no JavaScript, external fonts, analytics,
+or remote style assets. It uses semantic HTML, native disclosure controls, keyboard
+focus, non-color status labels, responsive reflow, and print styles.
+
+## Methodology
+
+The implementation is governed by:
+
+- [v0.3 Methodology Specification](docs/V0.3_METHODOLOGY_SPECIFICATION.md)
+- [Citation Manifest](docs/CITATION_MANIFEST.md)
+- [Methodology overview](docs/METHODOLOGY.md)
+- [Privacy, Accessibility, and Authorization](docs/PRIVACY_ACCESSIBILITY_AUTHORIZATION.md)
+- [Differentiation brief](docs/DIFFERENTIATION_BRIEF.md)
+
+The score expresses alignment with the selected response profile. It is not proof
+that an application is secure, a vulnerability count, or a compliance decision.
 
 ## Development
 
-Run the unit tests:
+Run the deterministic suite:
 
 ```bash
-PYTHONPATH=src python3 -m unittest discover -s tests
+PYTHONPATH=src python3 -m unittest discover -s tests -v
 ```
 
-## Project Documentation
+The 32-test suite covers API, authenticated application, brochure, hostile evidence,
+manual override, redirect boundaries, method fallback, redaction, HTML escaping,
+and offline report constraints.
 
-- [Differentiation brief](docs/DIFFERENTIATION_BRIEF.md)
-- [Methodology](docs/METHODOLOGY.md)
-- [Release notes](docs/releases/v0.2.0.md)
-- [Disclaimer](DISCLAIMER.md)
+## Release Discipline
 
-## Public Safety
+- [v0.3.0 release gate](docs/RELEASE_GATE_V0.3.md)
+- [v0.3.0 release notes](docs/releases/v0.3.0.md)
+- [v0.2.0 release notes](docs/releases/v0.2.0.md)
 
-This is a read-only educational tool. It checks HTTP response headers for targets explicitly provided by the user. It does not exploit, brute-force, crawl, or perform intrusive scanning.
+A release is not labelled complete until automated tests, the Python CI matrix,
+desktop/mobile browser QA, accessibility checks, documentation, and the intended
+repository diff have verified evidence.
 
+## Authorized Use
+
+The tool performs a `HEAD` request chain. It uses one `GET` compatibility fallback
+only when the server returns `405` or `501` for `HEAD`. Cross-origin redirects are
+blocked unless the operator explicitly authorizes them. It does not crawl,
+authenticate, fuzz, exploit, brute-force, or bypass controls.
+
+Use it only on systems you own, administer, or are explicitly authorized to assess.
 See [DISCLAIMER.md](DISCLAIMER.md).
 
 ## Roadmap
 
-- Add optional HTML report output with a restrained, professional design.
-- Add CSV output for larger website lists.
-- Add optional NIST CSF 2.0 / OWASP ASVS mapping notes.
-- Add response classification profiles: brochure site, authenticated app, API endpoint.
-- Add GitHub Actions CI and release artifacts.
-- Add screenshots of sample reports.
+- Add optional machine-readable profile-definition export.
+- Add controlled multi-response assessment for route-level profile comparison.
+- Add CSP parsing depth without claiming full browser-policy validation.
+- Add signed release artifacts after the v0.3 release gate is complete.

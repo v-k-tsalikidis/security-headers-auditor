@@ -1,67 +1,49 @@
 # Differentiation Brief
 
-## Problem
+## Real-World Problem
 
-Many small teams, portfolio owners, WordPress administrators, and non-specialist site owners need a quick way to understand whether their websites expose basic browser-side hardening gaps. Existing tools are useful, but they often return a grade without making the reasoning easy to reuse in a small operational note, website maintenance report, or recruiter-readable portfolio artifact.
+Simple header checkers often apply a universal present/missing checklist. That can
+penalize JSON APIs for absent browser document controls, reward weak values merely
+because a header exists, and obscure the difference between a scored gap and a
+contextual engineering decision.
 
-## Target User
+## Product Position
 
-- Security-conscious website owner or administrator.
-- Freelance web designer/developer who wants lightweight security hygiene checks.
-- Junior analyst or SOC/GRC learner who needs transparent assessment output.
-- Recruiter or technical reviewer evaluating practical cybersecurity judgment.
+Security Headers Auditor is a small, inspectable engineering tool for:
 
-## Existing Solution Landscape
+- security-conscious web owners and administrators;
+- developers maintaining public sites, authenticated applications, or APIs;
+- analysts who need evidence and reasoning, not only a grade;
+- technical reviewers evaluating practical security judgment.
 
-- Mozilla HTTP Observatory provides mature scoring and grading for public websites.
-- OWASP Secure Headers Project maintains extensive guidance and validation material.
-- Browser and web-platform documentation from MDN and web.dev explains the purpose and limitations of individual headers.
-- Many small scripts only check whether a header exists.
+## Distinctive Decisions
 
-## Gaps To Avoid
+- Three explicit response profiles: `app`, `api`, and `brochure`.
+- Conservative, evidence-recording auto-detection with manual override.
+- Profile-specific weights and applicability instead of a universal checklist.
+- Partial credit for weak or incomplete values.
+- Modern CSP `frame-ancestors` recognition rather than forcing legacy
+  `X-Frame-Options`.
+- Contextual and information-disclosure findings separated from the score.
+- Version-pinned standards mappings and a visible citation manifest.
+- Markdown and JSON for automation, plus a self-contained professional HTML report.
+- URL data minimization and escaped untrusted evidence by default.
+- Deterministic local fixtures with no remote dependency in regression tests.
 
-- Treating every header as equally important.
-- Treating all present headers as strong.
-- Penalizing context-dependent headers without explanation.
-- Producing noisy output that is difficult to turn into a maintenance note.
-- Implying that security headers prove that a site is secure.
+## What It Does Not Claim
 
-## Design Direction
-
-This project stays deliberately small, but it should show mature judgment:
-
-- baseline controls are weighted;
-- weak values receive partial credit and review notes;
-- contextual headers are separated from the score;
-- information-disclosure headers are visible without overstating risk;
-- output is readable as a short assessment note.
-
-## Public-Safe Scope
-
-The tool performs read-only HTTP `HEAD` requests with `GET` fallback. It does not crawl, exploit, brute-force, fuzz, authenticate, bypass controls, or inspect private content. Users must provide the targets and must have authorization to assess them.
+The project is not a vulnerability scanner, compliance engine, CSP validator,
+replacement for Mozilla HTTP Observatory, or substitute for application testing.
+Its score expresses profile alignment only.
 
 ## Recruiter Signal
 
-This repository is intended to demonstrate:
+The repository demonstrates:
 
-- practical web security hygiene;
-- Python CLI design;
-- structured findings and reporting;
-- risk-aware scoring rather than checklist-only thinking;
-- ability to connect official guidance with lightweight implementation.
-
-## Deliberate Exclusions
-
-- No vulnerability scanning.
-- No exploit checks.
-- No browser automation in the MVP.
-- No claim of equivalence with Mozilla HTTP Observatory or OWASP tools.
-- No default use of third-party scanning APIs.
-
-## Evidence Of Quality
-
-- Unit tests for normalization, scoring, weak values, and disclosure observations.
-- Clear methodology document.
-- Deterministic sample report.
-- Public-safety disclaimer.
-- Roadmap that expands carefully without turning the tool into a noisy scanner.
+- risk-based security modelling and explicit non-goals;
+- Python CLI and data-model design;
+- standards and research traceability;
+- secure report rendering;
+- accessibility and privacy-aware product judgment;
+- deterministic testing and release discipline;
+- clear communication for technical and non-technical readers.

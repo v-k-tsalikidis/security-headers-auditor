@@ -1,30 +1,26 @@
 # Repository Polish Checklist
 
-Use this checklist in GitHub repository settings after pushing the code.
-
 ## Repository Description
 
-Recommended description:
+Recommended:
 
 ```text
-Risk-aware Python CLI for auditing HTTP security headers with weighted scoring, readable reports, and public-safe methodology.
+Context-aware Python CLI for auditing HTTP security headers with evidence-based profiles and offline reports.
 ```
 
-Alternative shorter description:
+Short alternative:
 
 ```text
-Risk-aware HTTP security headers auditor with Markdown/JSON reports.
+Profile-aware HTTP security headers auditor for apps, APIs, and public sites.
 ```
 
 ## Website
 
-Leave empty for now.
-
-Add a project/portfolio page later only after a stable public portfolio site exists.
+Leave empty until a stable public project or portfolio page exists.
 
 ## Topics
 
-Recommended GitHub topics:
+Recommended:
 
 ```text
 python
@@ -35,48 +31,34 @@ http-headers
 appsec
 owasp
 security-audit
-blue-team
 security-automation
 cli
-markdown-report
+html-report
+accessibility
 ```
 
-If GitHub limits topics, use this shorter set:
+Short set:
 
 ```text
 python
 cybersecurity
 web-security
 security-headers
-http-headers
 appsec
 owasp
-blue-team
 security-automation
 cli
 ```
 
 ## License
 
-Use Apache-2.0.
-
-Rationale:
-
-- common and credible for security/open-source projects;
-- includes explicit patent language;
-- aligns naturally with the public security tooling ecosystem;
-- avoids ambiguity for anyone reviewing or reusing the project.
+Use Apache-2.0. It is established for public security tooling and contains explicit
+patent terms.
 
 ## Visibility
 
-For portfolio use, the repository should be public.
-
-If GitHub API or badges return `404`, verify:
-
-- repository visibility is public;
-- Actions are enabled;
-- the default branch is `main`;
-- the pushed commit is visible on GitHub.
+For portfolio use, make the repository public only when the v0.3 release gate is
+complete and the owner is ready to publish it.
 
 ## Actions
 
@@ -86,7 +68,7 @@ Expected workflow:
 CI
 ```
 
-Expected jobs:
+Expected matrix:
 
 ```text
 tests (Python 3.10)
@@ -94,20 +76,20 @@ tests (Python 3.11)
 tests (Python 3.12)
 ```
 
-The workflow should be green after the push that introduced `.github/workflows/ci.yml`.
+Each job must install the package, compile source and tests, and run the complete
+deterministic unittest suite.
 
 ## Release
 
-Create a GitHub release:
+Create the release only after every row in
+[RELEASE_GATE_V0.3.md](RELEASE_GATE_V0.3.md) is verified:
 
 ```text
-Tag: v0.2.0
+Tag: v0.3.0
 Target: main
-Title: v0.2.0 - Risk-aware header assessment
+Title: v0.3.0 - Context-aware security header assessment
 ```
 
-Use the release text from:
-
-```text
-docs/releases/v0.2.0.md
-```
+Use [v0.3.0 release notes](releases/v0.3.0.md). Do not publish the generated
+ImageGen concept reference; it contains illustrative data and is not part of the
+product or evidence set.

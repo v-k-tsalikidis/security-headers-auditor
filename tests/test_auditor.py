@@ -1,105 +1,447 @@
+from __future__ import annotations
+
+import json
+import re
 import unittest
+from email.message import Message
+from io import BytesIO
+from pathlib import Path
+from urllib.error import HTTPError
 from unittest.mock import patch
 
-from security_headers_auditor.auditor import audit_headers, normalize_target
-from security_headers_auditor.report import render_markdown
+from security_headers_auditor.auditor import (
+    _redirect_is_allowed,
+    audit_headers,
+    fetch_headers,
+    normalize_target,
+    redact_url,
+)
+from security_headers_auditor.cli import build_parser
+from security_headers_auditor.catalog import CITATIONS, RULES
+from security_headers_auditor.profiles import (
+    PROFILE_DEFINITIONS,
+    ProfileName,
+    resolve_profile,
+)
+from security_headers_auditor.report import render_html, render_json, render_markdown
 
 
-class AuditorTests(unittest.TestCase):
+FIXTURES = Path(__file__).parent / "fixtures"
+
+
+def load_fixture(name: str) -> dict[str, object]:
+    return json.loads((FIXTURES / f"{name}_headers.json").read_text(encoding="utf-8"))
+
+
+def fixture_fetch(name: str):
+    fixture = load_fixture(name)
+
+    def fetch(
+        target: str,
+        timeout: float = 8.0,
+        allow_cross_origin_redirects: bool = False,
+    ):
+        del target, timeout, allow_cross_origin_redirects
+        return (
+            fixture["final_url"],
+            fixture["status_code"],
+            fixture["headers"],
+        )
+
+    return fetch
+
+
+class TargetHandlingTests(unittest.TestCase):
     def test_normalize_target_adds_https(self):
         self.assertEqual(normalize_target("example.com"), "https://example.com")
 
-    def test_audit_headers_scores_present_headers(self):
-        def fake_fetch_headers(target, timeout=8.0):
-            return (
-                "https://example.test",
-                200,
-                {
-                    "Strict-Transport-Security": "max-age=31536000",
-                    "X-Content-Type-Options": "nosniff",
-                    "X-Frame-Options": "DENY",
-                },
-            )
+    def test_normalize_target_rejects_non_http_scheme(self):
+        with self.assertRaisesRegex(ValueError, "Unsupported URL scheme"):
+            normalize_target("file:///etc/passwd")
 
-        with patch("security_headers_auditor.auditor.fetch_headers", fake_fetch_headers):
-            result = audit_headers("https://example.test")
+    def test_normalize_target_rejects_embedded_credentials(self):
+        with self.assertRaisesRegex(ValueError, "Credentials"):
+            normalize_target("https://user:secret@example.test")
 
-        self.assertIsNone(result.error)
-        self.assertEqual(result.status_code, 200)
-        self.assertEqual(result.score, 35)
-        self.assertEqual(result.summary, "Needs Review")
-        self.assertTrue(
-            any(finding.name == "Strict-Transport-Security" for finding in result.findings)
-        )
-        self.assertTrue(
-            any(
-                finding.name == "Content-Security-Policy"
-                and finding.status == "missing"
-                and finding.severity == "high"
-                for finding in result.findings
-            )
+    def test_url_query_and_fragment_are_redacted_by_default(self):
+        self.assertEqual(
+            redact_url("https://example.test/path?token=secret#account"),
+            "https://example.test/path?<redacted>#<redacted>",
         )
 
-    def test_audit_headers_warns_on_weak_values_and_disclosure(self):
-        def fake_fetch_headers(target, timeout=8.0):
-            return (
-                "https://example.test",
-                200,
-                {
-                    "Strict-Transport-Security": "max-age=300",
-                    "Content-Security-Policy": "default-src *; script-src 'unsafe-inline'",
-                    "X-Content-Type-Options": "nosniff",
-                    "X-Frame-Options": "ALLOW-FROM https://legacy.example",
-                    "Referrer-Policy": "unsafe-url",
-                    "Permissions-Policy": "geolocation=*",
-                    "Cross-Origin-Opener-Policy": "unsafe-none",
-                    "Cross-Origin-Resource-Policy": "same-origin",
-                    "Server": "Apache/2.4.6",
-                    "X-Powered-By": "PHP/7.4",
-                },
+    def test_url_query_and_fragment_can_be_retained_explicitly(self):
+        url = "https://example.test/path?case=public#result"
+        self.assertEqual(redact_url(url, include_query=True), url)
+
+    def test_error_message_does_not_restore_redacted_url_data(self):
+        result = audit_headers("https:///path?token=fixture-secret#private")
+        self.assertEqual(result.summary, "Error")
+        self.assertNotIn("fixture-secret", result.error or "")
+        self.assertIn("<redacted>", result.error or "")
+
+    def test_same_origin_and_http_to_https_redirects_are_allowed(self):
+        self.assertTrue(
+            _redirect_is_allowed(
+                "https://example.test/start",
+                "https://example.test/final",
+            )
+        )
+        self.assertTrue(
+            _redirect_is_allowed(
+                "http://example.test/start",
+                "https://example.test/final",
+            )
+        )
+
+    def test_cross_origin_and_port_redirects_are_blocked(self):
+        self.assertFalse(
+            _redirect_is_allowed(
+                "https://example.test/start",
+                "https://other.example.test/final",
+            )
+        )
+        self.assertFalse(
+            _redirect_is_allowed(
+                "https://example.test:8443/start",
+                "https://example.test:9443/final",
+            )
+        )
+
+
+class FetchPolicyTests(unittest.TestCase):
+    class Response:
+        def __init__(self, url: str, status: int, headers: dict[str, str]):
+            self._url = url
+            self.status = status
+            self.headers = headers
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc_value, traceback):
+            del exc_type, exc_value, traceback
+
+        def geturl(self) -> str:
+            return self._url
+
+    class Opener:
+        def __init__(self, outcomes: list[object]):
+            self.outcomes = outcomes
+            self.methods: list[str] = []
+
+        def open(self, request, timeout: float):
+            del timeout
+            self.methods.append(request.get_method())
+            outcome = self.outcomes.pop(0)
+            if isinstance(outcome, Exception):
+                raise outcome
+            return outcome
+
+    @staticmethod
+    def http_error(code: int) -> HTTPError:
+        return HTTPError(
+            "https://example.test/",
+            code,
+            "fixture error",
+            Message(),
+            BytesIO(),
+        )
+
+    def test_http_error_response_is_audited_without_get_retry(self):
+        opener = self.Opener([self.http_error(404)])
+        with patch(
+            "security_headers_auditor.auditor.build_opener",
+            return_value=opener,
+        ):
+            _, status, _ = fetch_headers("https://example.test/")
+
+        self.assertEqual(status, 404)
+        self.assertEqual(opener.methods, ["HEAD"])
+
+    def test_get_fallback_is_limited_to_head_not_supported(self):
+        opener = self.Opener(
+            [
+                self.http_error(405),
+                self.Response(
+                    "https://example.test/",
+                    200,
+                    {"Content-Type": "text/html"},
+                ),
+            ]
+        )
+        with patch(
+            "security_headers_auditor.auditor.build_opener",
+            return_value=opener,
+        ):
+            _, status, _ = fetch_headers("https://example.test/")
+
+        self.assertEqual(status, 200)
+        self.assertEqual(opener.methods, ["HEAD", "GET"])
+
+
+class ProfileEngineTests(unittest.TestCase):
+    def test_every_profile_weight_total_is_100(self):
+        for profile in PROFILE_DEFINITIONS.values():
+            with self.subTest(profile=profile.name.value):
+                self.assertEqual(
+                    sum(policy.weight for policy in profile.policies.values()),
+                    100,
+                )
+
+    def test_auto_detects_machine_readable_response_as_api(self):
+        decision = resolve_profile("auto", {"content-type": "application/problem+json"})
+        self.assertEqual(decision.selected, ProfileName.API)
+        self.assertEqual(decision.confidence, "high")
+
+    def test_auto_requires_multiple_application_signals(self):
+        decision = resolve_profile(
+            "auto",
+            {
+                "content-type": "text/html",
+                "set-cookie": "session=value",
+                "cache-control": "private, no-store",
+            },
+        )
+        self.assertEqual(decision.selected, ProfileName.APP)
+        self.assertEqual(decision.confidence, "medium")
+
+    def test_auto_defaults_plain_html_to_brochure(self):
+        decision = resolve_profile("auto", {"content-type": "text/html"})
+        self.assertEqual(decision.selected, ProfileName.BROCHURE)
+        self.assertEqual(decision.confidence, "medium")
+
+    def test_auto_uses_low_confidence_fallback_for_ambiguous_response(self):
+        decision = resolve_profile("auto", {})
+        self.assertEqual(decision.selected, ProfileName.BROCHURE)
+        self.assertEqual(decision.confidence, "low")
+
+    def test_manual_profile_override_is_explicit(self):
+        decision = resolve_profile("app", {"content-type": "application/json"})
+        self.assertEqual(decision.selected, ProfileName.APP)
+        self.assertEqual(decision.confidence, "explicit")
+        self.assertTrue(decision.manual_override)
+
+    def test_catalog_profiles_and_citations_are_complete(self):
+        rule_keys = {rule.key for rule in RULES}
+        self.assertEqual(len(rule_keys), len(RULES))
+        for profile in PROFILE_DEFINITIONS.values():
+            self.assertEqual(set(profile.policies), rule_keys)
+        for rule in RULES:
+            with self.subTest(rule=rule.key):
+                self.assertTrue(rule.citation_keys)
+                self.assertTrue(set(rule.citation_keys).issubset(CITATIONS))
+        for citation in CITATIONS.values():
+            with self.subTest(citation=citation.key):
+                self.assertRegex(citation.url, r"^https?://")
+
+
+class ProfileAwareAuditTests(unittest.TestCase):
+    def test_api_fixture_has_stable_score_and_does_not_score_csp(self):
+        with patch(
+            "security_headers_auditor.auditor.fetch_headers",
+            fixture_fetch("api"),
+        ):
+            result = audit_headers("https://api.example.test/v1/status")
+
+        self.assertEqual(result.selected_profile, "api")
+        self.assertEqual(result.score, 100)
+        csp = next(
+            finding
+            for finding in result.findings
+            if finding.key == "content-security-policy"
+        )
+        self.assertEqual(csp.category, "contextual")
+        self.assertEqual(csp.max_points, 0)
+        self.assertEqual(csp.status, "info")
+
+    def test_application_fixture_has_stable_score(self):
+        with patch(
+            "security_headers_auditor.auditor.fetch_headers",
+            fixture_fetch("app"),
+        ):
+            result = audit_headers("https://portal.example.test/dashboard")
+
+        self.assertEqual(result.selected_profile, "app")
+        self.assertEqual(result.score, 100)
+        self.assertEqual(result.summary, "Strong")
+
+    def test_csp_frame_ancestors_satisfies_framing_control(self):
+        with patch(
+            "security_headers_auditor.auditor.fetch_headers",
+            fixture_fetch("app"),
+        ):
+            result = audit_headers("https://portal.example.test/dashboard")
+
+        xfo = next(
+            finding
+            for finding in result.findings
+            if finding.key == "x-frame-options"
+        )
+        self.assertEqual(xfo.status, "pass")
+        self.assertEqual(xfo.points, xfo.max_points)
+        self.assertIn("frame-ancestors", xfo.note)
+
+    def test_csp_without_script_restriction_is_high_severity_warning(self):
+        fixture = load_fixture("app")
+        headers = dict(fixture["headers"])
+        headers["Content-Security-Policy"] = "frame-ancestors 'self'"
+
+        def fetch(
+            target: str,
+            timeout: float = 8.0,
+            allow_cross_origin_redirects: bool = False,
+        ):
+            del target, timeout, allow_cross_origin_redirects
+            return fixture["final_url"], fixture["status_code"], headers
+
+        with patch("security_headers_auditor.auditor.fetch_headers", fetch):
+            result = audit_headers("https://portal.example.test/dashboard")
+
+        csp = next(
+            finding
+            for finding in result.findings
+            if finding.key == "content-security-policy"
+        )
+        self.assertEqual(csp.status, "warning")
+        self.assertEqual(csp.severity, "high")
+        self.assertEqual(csp.points, 6.25)
+        self.assertIn("script-src", csp.note)
+
+    def test_brochure_fixture_preserves_expected_warning_and_score(self):
+        with patch(
+            "security_headers_auditor.auditor.fetch_headers",
+            fixture_fetch("brochure"),
+        ):
+            result = audit_headers("https://www.example.test/")
+
+        self.assertEqual(result.selected_profile, "brochure")
+        self.assertEqual(result.score, 82)
+        csp = next(
+            finding
+            for finding in result.findings
+            if finding.key == "content-security-policy"
+        )
+        self.assertEqual(csp.status, "warning")
+        self.assertEqual(csp.severity, "high")
+
+    def test_manual_app_override_changes_api_applicability_and_score(self):
+        with patch(
+            "security_headers_auditor.auditor.fetch_headers",
+            fixture_fetch("api"),
+        ):
+            automatic = audit_headers("https://api.example.test/v1/status")
+            overridden = audit_headers(
+                "https://api.example.test/v1/status",
+                profile="app",
             )
 
-        with patch("security_headers_auditor.auditor.fetch_headers", fake_fetch_headers):
-            result = audit_headers("https://example.test")
+        self.assertEqual(automatic.score, 100)
+        self.assertEqual(overridden.selected_profile, "app")
+        self.assertEqual(overridden.profile_confidence, "explicit")
+        self.assertEqual(overridden.score, 30)
 
-        self.assertEqual(result.score, 58)
-        warning_names = {
-            finding.name
-            for finding in result.findings
-            if finding.status == "warning"
-        }
-        self.assertIn("Strict-Transport-Security", warning_names)
-        self.assertIn("Content-Security-Policy", warning_names)
-        self.assertIn("Referrer-Policy", warning_names)
-
-        disclosure_names = {
-            finding.name
-            for finding in result.findings
-            if finding.category == "disclosure"
-        }
-        self.assertEqual(disclosure_names, {"Server", "X-Powered-By"})
-
-    def test_markdown_report_groups_findings(self):
-        def fake_fetch_headers(target, timeout=8.0):
-            return (
-                "https://example.test",
-                200,
-                {
-                    "X-Content-Type-Options": "nosniff",
-                    "Server": "Apache/2.4.6",
-                },
+    def test_report_redacts_final_url_by_default(self):
+        with patch(
+            "security_headers_auditor.auditor.fetch_headers",
+            fixture_fetch("hostile"),
+        ):
+            result = audit_headers(
+                "https://hostile.example.test/?token=fixture-secret#private"
             )
 
-        with patch("security_headers_auditor.auditor.fetch_headers", fake_fetch_headers):
-            result = audit_headers("https://example.test")
+        self.assertNotIn("fixture-secret", result.target)
+        self.assertNotIn("fixture-secret", result.final_url or "")
 
-        report = render_markdown([result])
 
-        self.assertIn("## Executive Summary", report)
-        self.assertIn("### Baseline Findings", report)
-        self.assertIn("### Contextual Checks", report)
-        self.assertIn("### Information-Disclosure Observations", report)
-        self.assertIn("A strong score does not prove", report)
+class ReportRegressionTests(unittest.TestCase):
+    def _result(self, name: str):
+        with patch(
+            "security_headers_auditor.auditor.fetch_headers",
+            fixture_fetch(name),
+        ):
+            return audit_headers(f"https://{name}.example.test/")
+
+    def test_markdown_report_records_profile_and_research(self):
+        report = render_markdown([self._result("brochure")])
+        self.assertIn("Methodology version: `0.3.0`", report)
+        self.assertIn("### Profile Decision", report)
+        self.assertIn(
+            "OWASP Application Security Verification Standard 5.0.0",
+            report,
+        )
+        self.assertIn("not evidence of compromise", report)
+
+    def test_json_report_exposes_methodology_and_profile(self):
+        payload = json.loads(render_json([self._result("api")]))
+        self.assertEqual(payload["methodology_version"], "0.3.0")
+        self.assertEqual(payload["results"][0]["selected_profile"], "api")
+        self.assertEqual(payload["results"][0]["score"], 100)
+
+    def test_html_report_is_self_contained_and_script_free(self):
+        html = render_html([self._result("app")])
+        self.assertTrue(html.startswith("<!doctype html>"))
+        self.assertIn('id="main-content"', html)
+        self.assertIn("<details", html)
+        self.assertIn('id="target-1-result"', html)
+        self.assertIn('data-finding-key="content-security-policy"', html)
+        self.assertIn("Content-Security-Policy", html)
+        self.assertNotRegex(html.lower(), r"<script(?:\s|>)")
+        self.assertNotRegex(html.lower(), r"<link(?:\s|>)")
+        self.assertNotRegex(html.lower(), r'src="https?://')
+        self.assertIn('rel="noopener noreferrer"', html)
+
+    def test_html_escapes_untrusted_header_values(self):
+        html = render_html([self._result("hostile")])
+        self.assertNotIn("<script>alert('server')</script>", html)
+        self.assertNotIn("<img src=x onerror=alert('framework')>", html)
+        self.assertIn("&lt;script&gt;alert(&#x27;server&#x27;)&lt;/script&gt;", html)
+        self.assertIn("&lt;img src=x onerror=alert(&#x27;framework&#x27;)&gt;", html)
+
+    def test_markdown_escapes_untrusted_header_values(self):
+        markdown = render_markdown([self._result("hostile")])
+        self.assertNotIn("<script>alert('server')</script>", markdown)
+        self.assertNotIn("<img src=x onerror=alert('framework')>", markdown)
+        self.assertIn("&lt;script&gt;alert('server')&lt;/script&gt;", markdown)
+        self.assertIn(
+            "&lt;img src=x onerror=alert('framework')&gt;",
+            markdown,
+        )
+
+    def test_cli_exposes_profile_html_and_privacy_controls(self):
+        parser = build_parser()
+        args = parser.parse_args(
+            [
+                "example.test",
+                "--profile",
+                "api",
+                "--format",
+                "html",
+                "--include-query",
+                "--allow-cross-origin-redirects",
+            ]
+        )
+        self.assertEqual(args.profile, "api")
+        self.assertEqual(args.format, "html")
+        self.assertTrue(args.include_query)
+        self.assertTrue(args.allow_cross_origin_redirects)
+
+    def test_html_contains_no_remote_runtime_dependencies(self):
+        html = render_html([self._result("app")])
+        self.assertNotIn("@import", html)
+        self.assertNotIn("url(http", html.lower())
+        self.assertFalse(
+            re.search(r'<(?:img|iframe|script)[^>]+src=["\']', html, re.IGNORECASE)
+        )
+
+    def test_html_accessibility_contract_is_present(self):
+        html = render_html([self._result("app")])
+        self.assertIn('<html lang="en">', html)
+        self.assertIn('class="skip-link"', html)
+        self.assertIn("<progress", html)
+        self.assertIn("<summary>", html)
+        self.assertIn('class="table-scroll" tabindex="0"', html)
+        self.assertIn("@media (prefers-reduced-motion: reduce)", html)
+        self.assertIn("focus-visible", html)
 
 
 if __name__ == "__main__":

@@ -1,0 +1,10 @@
+{
+  "final_url": "https://hostile.example.test/?token=fixture-secret#private",
+  "status_code": 200,
+  "headers": {
+    "Content-Type": "text/html",
+    "Server": "<script>alert('server')</script>",
+    "X-Powered-By": "<img src=x onerror=alert('framework')>",
+    "Content-Security-Policy": "default-src 'self'; report-uri https://collector.example.test/?value=<unsafe>"
+  }
+}

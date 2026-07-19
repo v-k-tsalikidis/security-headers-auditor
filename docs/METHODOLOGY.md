@@ -1,74 +1,37 @@
 # Methodology
 
-## Research Basis
+Security Headers Auditor v0.3 evaluates one HTTP response against the expectations
+of an endpoint profile. It does not treat every header as universally applicable.
 
-This project uses public guidance as an initial methodology base:
+The normative project specification is
+[V0.3 Methodology Specification](V0.3_METHODOLOGY_SPECIFICATION.md). The
+[Citation Manifest](CITATION_MANIFEST.md) records the primary standards,
+official guidance, and research used by the implementation.
 
-- [OWASP Secure Headers Project](https://www.owasp.community/projects/secure-headers-project)
-- [OWASP Secure Headers Project best practices](https://github.com/OWASP/www-project-secure-headers/blob/master/mainsite/03_best_practices.md)
-- [MDN HTTP headers reference](https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers)
-- [MDN HTTP Observatory scoring methodology](https://developer.mozilla.org/en-US/observatory/docs/tests_and_scoring)
-- [web.dev security headers quick reference](https://web.dev/articles/security-headers)
-- [MDN Referrer-Policy](https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Referrer-Policy)
+## Assessment Flow
 
-The tool does not copy Mozilla HTTP Observatory scoring. It uses a simpler local scoring model designed for transparent portfolio, maintenance, and learning use.
-
-## Assessment Model
-
-Findings are divided into three categories.
-
-### Baseline
-
-Baseline findings affect the score. These controls are broadly useful for common public websites and web applications:
-
-| Header | Weight |
-| --- | ---: |
-| `Strict-Transport-Security` | 20 |
-| `Content-Security-Policy` | 20 |
-| `X-Content-Type-Options` | 10 |
-| `X-Frame-Options` | 10 |
-| `Referrer-Policy` | 10 |
-| `Permissions-Policy` | 10 |
-| `Cross-Origin-Opener-Policy` | 10 |
-| `Cross-Origin-Resource-Policy` | 10 |
-
-### Contextual
-
-Contextual findings are reported but not scored. These headers may be valuable, but their correct use depends on endpoint type, compatibility, and application behavior:
-
-- `Cross-Origin-Embedder-Policy`
-- `Clear-Site-Data`
-- `Cache-Control`
-- `X-Permitted-Cross-Domain-Policies`
-- `X-DNS-Prefetch-Control`
-
-### Information Disclosure
-
-Information-disclosure observations are reported separately. They do not prove a vulnerability, but they may reveal unnecessary platform or framework details:
-
-- `Server`
-- `X-Powered-By`
-- `X-AspNet-Version`
-- `X-AspNetMvc-Version`
-- `X-Generator`
-- `X-CMS`
-- `X-Php-Version`
+1. Normalize the operator-supplied HTTP or HTTPS target.
+2. Request response headers with `HEAD`, using `GET` only after `405` or `501`.
+3. Follow same-origin redirects and same-host HTTP-to-HTTPS upgrades; block other
+   redirect destinations unless the operator explicitly allows them.
+4. Normalize header names without modifying observed values.
+5. Apply an explicit profile or conservatively infer `api`, `app`, or `brochure`.
+6. Evaluate scored rules using the selected profile's applicability and weights.
+7. Report contextual and disclosure observations outside the score.
+8. Redact URL query strings and fragments unless the operator explicitly retains them.
+9. Render Markdown, JSON, or a self-contained offline HTML report.
 
 ## Scoring
 
-Each baseline header can receive:
-
-- full points for strong expected values;
-- partial points for present but weak or incomplete values;
-- zero points when missing.
-
-The score is calculated as:
+Each profile has exactly 100 available points. A rule can receive full, partial,
+or zero credit according to the observed value:
 
 ```text
-score = round(100 * earned_baseline_points / available_baseline_points)
+score = round(100 * earned_profile_points / available_profile_points)
 ```
 
-Score summaries:
+The score describes alignment with the selected response profile. It is not a
+vulnerability count, compliance decision, or proof that the application is secure.
 
 | Score | Summary |
 | ---: | --- |
@@ -77,10 +40,14 @@ Score summaries:
 | 35-59 | Needs Review |
 | 0-34 | Weak |
 
-## Interpretation Guardrails
+## Interpretation
 
-- A high score does not prove that an application is secure.
-- A low score does not prove active compromise.
-- Header values must be reviewed in application context.
-- CSP and cross-origin policies can break applications if applied blindly.
-- Security headers are one layer of web security hygiene, not a substitute for secure design, patching, authentication, logging, dependency management, and vulnerability management.
+- Auto-detection is evidence-based but cannot prove business purpose.
+- Manual `--profile` selection is authoritative and is recorded in the report.
+- `not_applicable` means the rule is not assessed for that response profile.
+- Contextual observations may still require review even though they do not affect the score.
+- NIST mappings are control-informed relationships, not evidence of compliance.
+- CSP, caching, and cross-origin policies require application-specific validation before deployment.
+
+See [Privacy, Accessibility, and Authorization](PRIVACY_ACCESSIBILITY_AUTHORIZATION.md)
+for data-handling and authorized-use boundaries.

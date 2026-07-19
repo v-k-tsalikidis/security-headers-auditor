@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "security-headers-auditor"
-version = "0.1.0"
-description = "Small read-only HTTP security headers auditor with Markdown and JSON reports."
+version = "0.3.0"
+description = "Context-aware HTTP security headers auditor with evidence-based profiles and offline reports."
 readme = "README.md"
 requires-python = ">=3.10"
 license = { text = "Apache-2.0" }
