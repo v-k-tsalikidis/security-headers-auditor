@@ -42,15 +42,15 @@ below has recorded evidence.
 
 ## Workspace Functionality
 
-- [ ] Create and open workspace.
-- [ ] Add, edit, disable, and remove authorized targets.
-- [ ] Configure explicit profile and assurance expectations.
+- [x] Create and open workspace.
+- [x] Add, edit, disable, and remove authorized targets.
+- [x] Configure explicit profile and assurance expectations.
 - [x] Run current assessment through the Python engine.
-- [ ] Inspect findings, mappings, rationale, and limitations.
-- [ ] Run policy assurance and inspect regressions.
+- [x] Inspect findings, mappings, rationale, and limitations.
+- [x] Run policy assurance and inspect regressions.
 - [x] Create candidate baseline and explicitly approve reviewed change.
 - [x] Export supported detailed report formats.
-- [ ] Recover from network, validation, persistence, and conflict errors.
+- [x] Recover from network, validation, persistence, and conflict errors.
 
 ## Framework Evidence
 
@@ -66,9 +66,9 @@ below has recorded evidence.
 
 - [x] Python and frontend unit tests pass.
 - [x] API contract and hostile-origin integration tests pass.
-- [ ] Browser end-to-end workflow passes without public remote targets.
-- [ ] Desktop and mobile responsive QA passes.
-- [ ] Keyboard, focus, semantics, contrast, zoom, and reduced-motion review
+- [x] Browser end-to-end workflow passes without public remote targets.
+- [x] Desktop and mobile responsive QA passes.
+- [x] Keyboard, focus, semantics, contrast, zoom, and reduced-motion review
   passes within documented limits.
 - [x] Built UI is packaged in wheel and works from an offline install.
 - [ ] Dependency and license review complete.
