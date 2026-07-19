@@ -1,7 +1,11 @@
 # Framework Alignment And Claims Policy
 
-**Status:** Accepted and primary-source reviewed for v0.5; release validation pending
+**Status:** Accepted, primary-source reviewed, and release-validated in v0.5.0
 **Reviewed:** 2026-07-19
+
+The published [v0.5 release gate](RELEASE_GATE_V0.5.md) records the completed
+source re-review, mapping limitations, report-claim boundary, and SARIF schema
+validation for this policy.
 
 ## Purpose
 

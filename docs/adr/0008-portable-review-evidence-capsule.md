@@ -1,6 +1,7 @@
 # ADR 0008: Use A Deterministic Offline Review Evidence Capsule
 
-**Status:** Accepted for v0.8 implementation; release evidence pending
+**Status:** Accepted and delivered in v0.8.0; release evidence is recorded in
+[the v0.8 release gate](../RELEASE_GATE_V0.8.md).
 
 ## Context
 
