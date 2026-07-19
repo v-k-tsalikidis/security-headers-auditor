@@ -2,10 +2,12 @@
 
 ## Release Classification
 
-Current classification: **release candidate; not tagged or published**.
+Current classification: **stable; `v0.8.0` published 2026-07-20**.
 
-No `v0.8.0` tag, GitHub Release, announcement, or completeness claim is
-permitted until each applicable item below has reproducible evidence.
+The annotated `v0.8.0` tag, GitHub Release, release distributions, checksums,
+and provenance evidence have each been independently verified. This record
+captures delivery and integrity evidence; it does not make a security,
+compliance, or effectiveness claim about an assessed target.
 
 ## Scope And Methodology
 
@@ -42,29 +44,51 @@ permitted until each applicable item below has reproducible evidence.
   baseline binding, full offline verification, raw-header omission, manifest
   tampering, duplicate ZIP entries, query-bearing scope rejection, broad-report
   rejection, and CLI proof that creation does not call the audit engine.
-- [ ] Full Python suite, compile check, deterministic command-line fixture,
-  clean archive package build, and clean offline installation pass after final
-  release documentation changes.
-- [ ] Frontend tests, type check, production build, and packaged-static-asset
-  synchronization pass after final documentation changes (the frontend is not
-  changed, but the delivery boundary remains checked).
+- [x] Final Python suite (`146` tests), compile check, deterministic
+  command-line fixtures, clean archive package build, and clean offline
+  installation passed for the tagged source.
+- [x] Frontend tests (`6` tests), type check, production build, and
+  packaged-static-asset synchronization passed for the tagged source.
 
 ## Publication Evidence
 
-- [ ] GitHub Actions CI is green for the final pre-tag commit.
-- [ ] A manually dispatched pre-tag release-artifact run builds distributions,
-  verifies checksums, and records provenance. Downloaded artifacts are checked
-  independently against the enclosed manifest.
-- [ ] README, methodology, ADR, schema, examples, release notes, dependency
-  review, and this gate match the final intended diff.
-- [ ] The final diff contains no secrets, generated capsules, policies,
-  baselines, reports, caches, databases, or unrelated files.
+- [x] GitHub Actions [CI run 35](https://github.com/v-k-tsalikidis/security-headers-auditor/actions/runs/29704436684)
+  is green for final pre-tag commit `0bc9f6234ff60230485e542a255f91e7434d4a84`.
+- [x] Manually dispatched [pre-tag release-artifact run 11](https://github.com/v-k-tsalikidis/security-headers-auditor/actions/runs/29704546117)
+  built distributions, verified checksums, and recorded provenance. Its downloaded
+  artifact was independently checked against its enclosed `SHA256SUMS`.
+- [x] README, methodology, ADR, schema, examples, release notes, dependency
+  review, and this gate matched the final intended tag diff.
+- [x] The final diff was checked for secrets, generated capsules, policies,
+  baselines, reports, caches, databases, and unrelated files before tagging.
 
 ## Tag And Publication Evidence
 
-- [ ] The annotated `v0.8.0` tag passes CI and the tag-triggered release-artifact
-  workflow publishes verified distributions, checksums, and provenance before a
-  GitHub Release is considered complete.
+- [x] The annotated `v0.8.0` tag passes [CI run 36](https://github.com/v-k-tsalikidis/security-headers-auditor/actions/runs/29704647202).
+  The tag-triggered [Release Artifacts run 12](https://github.com/v-k-tsalikidis/security-headers-auditor/actions/runs/29704647247)
+  successfully built, checksumed, uploaded, provenance-attested, and published
+  the release. The published [GitHub Release v0.8.0](https://github.com/v-k-tsalikidis/security-headers-auditor/releases/tag/v0.8.0)
+  contains the wheel, source distribution, and `SHA256SUMS`.
+
+## Verification Record
+
+- Tag commit: `0bc9f6234ff60230485e542a255f91e7434d4a84`; annotated tag object:
+  `0902a7408023c1c59ed64e750bf45c9e45f7b0d5`.
+- Pre-tag artifact: `security-headers-auditor-dist-0bc9f6234ff60230485e542a255f91e7434d4a84`
+  (artifact `8447480951`), GitHub digest
+  `sha256:a5f9def0d0d60c821e1dc1ed5f2712a2fa66dd3cad7c8943ac793ff301fb0804`.
+  Its downloaded archive and enclosed `SHA256SUMS` verified both distributions.
+- Tag-workflow artifact: `security-headers-auditor-dist-0bc9f6234ff60230485e542a255f91e7434d4a84`
+  (artifact `8447509968`), GitHub digest
+  `sha256:032fd3cecd13df8f4ac15f67672d1c839eebb72f77a1137d462a2f2dd26a757c`.
+  The downloaded archive matched that digest and its internal `SHA256SUMS`
+  verified both distributions.
+- The public release downloads were independently rechecked against GitHub's
+  recorded SHA-256 digests and the published `SHA256SUMS`; both the wheel and
+  source distribution verified successfully.
+- The tag release job completed the `Attest release distributions` step before
+  publication. The hash manifest provides integrity checking; provenance is
+  delivery evidence, not an assertion that a target is secure.
 
 Any non-applicable item requires a written rationale. Historical v0.7 evidence
 does not satisfy this release gate.

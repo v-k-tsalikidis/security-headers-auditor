@@ -406,8 +406,8 @@ See [DISCLAIMER.md](DISCLAIMER.md).
 - [x] Add CSP parsing depth without claiming full browser-policy validation.
 - [x] v0.7: verified release of data-minimized route baselines for controlled
   route-level drift assurance.
-- [ ] v0.8: release candidate adds an offline-verifiable portable review-evidence
-  capsule; publication remains gated on complete reproducible evidence.
+- [x] v0.8: verified tag-triggered release of an offline-verifiable, portable
+  review-evidence capsule.
 
 The detailed post-v0.6.1 scope, safety boundaries, and release gates are in the
 [product roadmap](docs/ROADMAP.md).

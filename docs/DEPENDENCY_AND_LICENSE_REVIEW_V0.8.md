@@ -1,7 +1,7 @@
 # v0.8 Dependency And License Revalidation
 
 **Scope:** Portable review evidence capsule
-**Status:** Release-candidate review
+**Status:** Stable-release revalidation completed 2026-07-20
 
 This is an engineering review, not legal advice. v0.8 uses only Python standard
 library modules already available to the supported runtime: `hashlib`, `json`,
@@ -11,6 +11,6 @@ telemetry dependency.
 
 The Apache-2.0 project license and existing third-party notices remain
 applicable. The existing immutable-action CI, package checks, SHA-256 manifests,
-and provenance attestation remain delivery controls. The v0.8 release gate must
-confirm that no accidental dependency or license change is bundled with this
-feature.
+and provenance attestation remain delivery controls. The verified v0.8 release
+gate records that no accidental dependency or license change was bundled with
+this feature.

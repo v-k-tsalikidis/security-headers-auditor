@@ -2,7 +2,7 @@
 
 **Status:** Active planning document
 **Reviewed:** 2026-07-20
-**Current stable release:** v0.7.0
+**Current stable release:** v0.8.0
 
 ## Direction
 
@@ -26,6 +26,7 @@ complete.
 | v0.6 | Deterministic profile-definition export, explicit same-origin route comparison, and bounded CSP parser improvements. |
 | v0.6.1 | Reproducible release artifacts, SHA-256 manifests, immutable CI action pins, and GitHub artifact provenance attestations. |
 | v0.7 | Approved, data-minimized route baselines for explicit route-manifest drift review, delivered through a verified tag-triggered release. |
+| v0.8 | Offline-verifiable, deterministic portable review evidence capsules, delivered through a verified tag-triggered release. |
 
 The former roadmap is therefore closed:
 
@@ -125,12 +126,11 @@ as well as actual drift.
 
 ## v0.8 — Portable Review Evidence Capsule
 
-**Status:** In implementation after v0.7's verified release; v0.8 remains a
-release candidate until its own evidence gate is complete.
+**Status:** Stable v0.8.0, released 2026-07-20.
 
-The product owner authorized this next bounded workflow after v0.7's stable
-delivery verification. Its release still requires evidence that it improves
-review traceability without becoming a generic report archive.
+The implementation and its tag-triggered delivery evidence are recorded in the
+[v0.8 release gate](RELEASE_GATE_V0.8.md). The following text remains the
+accepted problem statement and safety boundary for the delivered feature.
 
 ### Real problem
 
