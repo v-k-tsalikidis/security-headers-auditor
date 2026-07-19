@@ -4,11 +4,15 @@ import json
 import re
 import socket
 import unittest
+from contextlib import redirect_stderr
 from email.message import Message
-from io import BytesIO
+from io import BytesIO, StringIO
 from pathlib import Path
+from tempfile import TemporaryDirectory
 from urllib.error import HTTPError
 from unittest.mock import patch
+
+from jsonschema import Draft202012Validator
 
 from security_headers_auditor.auditor import (
     TargetAddressBoundaryError,
@@ -19,8 +23,12 @@ from security_headers_auditor.auditor import (
     normalize_target,
     redact_url,
 )
-from security_headers_auditor.cli import build_parser
+from security_headers_auditor.cli import build_parser, main
 from security_headers_auditor.catalog import CITATIONS, RULES
+from security_headers_auditor.profile_export import (
+    build_profile_definition_export,
+    render_profile_definition_export,
+)
 from security_headers_auditor.profiles import (
     PROFILE_DEFINITIONS,
     ProfileName,
@@ -277,6 +285,90 @@ class ProfileEngineTests(unittest.TestCase):
         for citation in CITATIONS.values():
             with self.subTest(citation=citation.key):
                 self.assertRegex(citation.url, r"^https?://")
+
+
+class ProfileDefinitionExportTests(unittest.TestCase):
+    def test_export_is_deterministic_complete_and_static(self):
+        first = render_profile_definition_export()
+        second = render_profile_definition_export()
+        payload = json.loads(first)
+
+        self.assertEqual(first, second)
+        self.assertTrue(first.endswith("\n"))
+        self.assertEqual(
+            [profile["id"] for profile in payload["profiles"]],
+            [profile.value for profile in ProfileName],
+        )
+        self.assertNotIn("generated_at", payload)
+        self.assertTrue(payload["limitations"])
+        self.assertEqual(payload["evidence_claims_policy"], "supporting-evidence-only")
+
+        rule_keys = [rule.key for rule in RULES]
+        citation_keys = {citation["key"] for citation in payload["citations"]}
+        self.assertEqual(len(citation_keys), len(payload["citations"]))
+        for profile in payload["profiles"]:
+            with self.subTest(profile=profile["id"]):
+                self.assertEqual(profile["scored_weight_total"], 100)
+                self.assertEqual(
+                    [control["key"] for control in profile["controls"]],
+                    rule_keys,
+                )
+                self.assertEqual(
+                    sum(control["score_weight"] for control in profile["controls"]),
+                    100,
+                )
+                for control in profile["controls"]:
+                    self.assertTrue(set(control["citation_keys"]).issubset(citation_keys))
+                    self.assertTrue(
+                        {
+                            mapping["citation_key"]
+                            for mapping in control["supporting_evidence_mappings"]
+                        }.issubset(citation_keys)
+                    )
+
+    def test_export_validates_against_committed_schema(self):
+        schema = json.loads(
+            (
+                Path(__file__).parents[1]
+                / "docs"
+                / "schemas"
+                / "profile-definitions.schema.json"
+            ).read_text(encoding="utf-8")
+        )
+        Draft202012Validator.check_schema(schema)
+        Draft202012Validator(schema).validate(build_profile_definition_export())
+
+    def test_cli_export_never_invokes_audit_or_network_path(self):
+        with TemporaryDirectory() as temporary_directory:
+            output_path = Path(temporary_directory) / "profiles.json"
+            with patch("security_headers_auditor.cli.audit_headers") as audit:
+                exit_code = main(
+                    ["--export-profile-definitions", str(output_path)]
+                )
+
+            self.assertEqual(exit_code, 0)
+            audit.assert_not_called()
+            payload = json.loads(output_path.read_text(encoding="utf-8"))
+            self.assertEqual(
+                payload["artifact"],
+                "security-headers-auditor.profile-definitions",
+            )
+
+    def test_cli_export_rejects_audit_or_report_inputs(self):
+        with TemporaryDirectory() as temporary_directory:
+            output_path = Path(temporary_directory) / "profiles.json"
+            for arguments in (
+                ["https://example.test", "--export-profile-definitions", str(output_path)],
+                ["--export-profile-definitions", str(output_path), "--policy", "policy.json"],
+                ["--export-profile-definitions", str(output_path), "--output", "report.json"],
+                ["--export-profile-definitions", str(output_path), "--format", "json"],
+                ["--export-profile-definitions", str(output_path), "--format", "markdown"],
+            ):
+                with self.subTest(arguments=arguments):
+                    with redirect_stderr(StringIO()):
+                        with self.assertRaises(SystemExit) as raised:
+                            main(arguments)
+                    self.assertEqual(raised.exception.code, 2)
 
 
 class ProfileAwareAuditTests(unittest.TestCase):

@@ -16,6 +16,7 @@ from .assurance import (
 )
 from .auditor import audit_headers
 from .ci_report import render_assurance_json, render_junit, render_sarif
+from .profile_export import render_profile_definition_export
 from .report import render_html, render_json, render_markdown
 
 
@@ -54,6 +55,15 @@ def build_parser() -> argparse.ArgumentParser:
         help=(
             "Write the current successful policy run as a deterministic baseline. "
             "Review the diff before approving it in source control."
+        ),
+    )
+    parser.add_argument(
+        "--export-profile-definitions",
+        type=Path,
+        metavar="PATH",
+        help=(
+            "Write the canonical, static profile-definition JSON to PATH without "
+            "requesting any target. This cannot be combined with audit or policy inputs."
         ),
     )
     parser.add_argument(
@@ -149,6 +159,11 @@ def main(argv: list[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(resolved_argv)
 
+    if args.export_profile_definitions:
+        _validate_profile_export_mode(parser, args, resolved_argv)
+        _write_output(args.export_profile_definitions, render_profile_definition_export())
+        return 0
+
     if args.policy:
         if args.targets or args.input_file:
             parser.error("Do not combine --policy with positional targets or --input-file.")
@@ -223,6 +238,34 @@ def _run_workspace_mode(argv: list[str]) -> int:
     except KeyboardInterrupt:
         print("\nWorkspace stopped.")
     return 0
+
+
+def _validate_profile_export_mode(
+    parser: argparse.ArgumentParser,
+    args: argparse.Namespace,
+    argv: list[str],
+) -> None:
+    incompatible_options = {
+        "--input-file",
+        "--format",
+        "--policy",
+        "--baseline",
+        "--write-baseline",
+        "--profile",
+        "--include-query",
+        "--allow-cross-origin-redirects",
+        "--reporting-readiness",
+        "--cross-origin-isolation",
+        "--output",
+        "--timeout",
+    }
+    specified_incompatible_option = any(
+        item.partition("=")[0] in incompatible_options for item in argv
+    )
+    if args.targets or specified_incompatible_option:
+        parser.error(
+            "--export-profile-definitions cannot be combined with audit, policy, or report options."
+        )
 
 
 def _run_policy_mode(args: argparse.Namespace) -> int:

@@ -37,6 +37,7 @@ The result is a transparent engineering assessment:
 - JSON policy-as-code and deterministic approved baselines;
 - score, profile, and control-state regression detection;
 - SARIF 2.1.0 and JUnit XML outputs for CI systems;
+- deterministic machine-readable profile definitions for offline CI and review;
 - Markdown, JSON, and offline self-contained HTML reports;
 - a loopback-only workspace for authorized inventories, results, and reviewed
   baseline approval;
@@ -52,6 +53,23 @@ The result is a transparent engineering assessment:
 
 Auto-detection is deliberately conservative. It cannot prove business purpose.
 Use a manual profile for controlled assessments.
+
+## Profile Definitions For CI And Review
+
+Export the complete, canonical profile configuration without making an HTTP
+request. The output contains profile applicability and weights, rule rationale,
+standards, source citations, and explicitly limited supporting-evidence
+mappings—never a target, response, raw header, or assessment result.
+
+```bash
+security-headers-auditor \
+  --export-profile-definitions artifacts/profile-definitions.json
+```
+
+The export is stable and timestamp-free for meaningful source-control and CI
+diffs. Its [JSON Schema](docs/schemas/profile-definitions.schema.json) is
+versioned; it is a tool-configuration document, not a compliance attestation or
+proof of a live endpoint's security.
 
 ## Quick Start
 
@@ -212,6 +230,7 @@ The implementation is governed by:
 
 - [v0.4 Methodology Specification](docs/V0.4_METHODOLOGY_SPECIFICATION.md)
 - [v0.5 Workspace Methodology Specification](docs/V0.5_METHODOLOGY_SPECIFICATION.md)
+- [v0.6 Methodology and Delivery Specification](docs/V0.6_METHODOLOGY_SPECIFICATION.md)
 - [v0.5 Workspace Tutorial](docs/V0.5_WORKSPACE_TUTORIAL.md)
 - [Continuous Assurance Guide](docs/CONTINUOUS_ASSURANCE.md)
 - [v0.3 Methodology Specification](docs/V0.3_METHODOLOGY_SPECIFICATION.md)
@@ -266,6 +285,6 @@ See [DISCLAIMER.md](DISCLAIMER.md).
 
 ## Roadmap
 
-- Add optional machine-readable profile-definition export.
+- [x] Add optional machine-readable profile-definition export.
 - Add controlled multi-response assessment for route-level profile comparison.
 - Add CSP parsing depth without claiming full browser-policy validation.

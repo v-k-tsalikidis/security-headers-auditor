@@ -1,0 +1,80 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/v-k-tsalikidis/security-headers-auditor/blob/main/docs/schemas/profile-definitions.schema.json",
+  "title": "Security Headers Auditor Profile Definition Export",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "artifact", "tool_version", "methodology_version", "evidence_mapping_set_version", "evidence_claims_policy", "limitations", "profiles", "citations"],
+  "properties": {
+    "schema_version": { "const": "1.0" },
+    "artifact": { "const": "security-headers-auditor.profile-definitions" },
+    "tool_version": { "type": "string", "minLength": 1 },
+    "methodology_version": { "type": "string", "minLength": 1 },
+    "evidence_mapping_set_version": { "type": "string", "minLength": 1 },
+    "evidence_claims_policy": { "const": "supporting-evidence-only" },
+    "limitations": { "type": "array", "minItems": 1, "items": { "type": "string", "minLength": 1 } },
+    "profiles": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/profile" } },
+    "citations": { "type": "array", "items": { "$ref": "#/$defs/citation" } }
+  },
+  "$defs": {
+    "profile": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "label", "description", "scored_weight_total", "controls"],
+      "properties": {
+        "id": { "enum": ["app", "api", "brochure"] },
+        "label": { "type": "string", "minLength": 1 },
+        "description": { "type": "string", "minLength": 1 },
+        "scored_weight_total": { "const": 100 },
+        "controls": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/control" } }
+      }
+    },
+    "control": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["key", "header_name", "purpose", "recommendation", "applicability", "score_weight", "profile_rationale", "citation_keys", "standards", "supporting_evidence_mappings"],
+      "properties": {
+        "key": { "type": "string", "minLength": 1 },
+        "header_name": { "type": "string", "minLength": 1 },
+        "purpose": { "type": "string", "minLength": 1 },
+        "recommendation": { "type": "string", "minLength": 1 },
+        "applicability": { "enum": ["required", "recommended", "informational", "not_applicable"] },
+        "score_weight": { "type": "integer", "minimum": 0, "maximum": 100 },
+        "profile_rationale": { "type": "string", "minLength": 1 },
+        "citation_keys": { "type": "array", "items": { "type": "string", "minLength": 1 }, "uniqueItems": true },
+        "standards": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+        "supporting_evidence_mappings": { "type": "array", "items": { "$ref": "#/$defs/evidenceMapping" } }
+      }
+    },
+    "evidenceMapping": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["framework_id", "framework", "framework_version", "requirement", "evidence_family", "relationship", "confidence", "rationale", "limitations", "citation_key"],
+      "properties": {
+        "framework_id": { "type": "string", "minLength": 1 },
+        "framework": { "type": "string", "minLength": 1 },
+        "framework_version": { "type": "string", "minLength": 1 },
+        "requirement": { "type": "string", "minLength": 1 },
+        "evidence_family": { "type": "string", "minLength": 1 },
+        "relationship": { "type": "string", "minLength": 1 },
+        "confidence": { "type": "string", "minLength": 1 },
+        "rationale": { "type": "string", "minLength": 1 },
+        "limitations": { "type": "string", "minLength": 1 },
+        "citation_key": { "type": "string", "minLength": 1 }
+      }
+    },
+    "citation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["key", "title", "publisher", "source_type", "url", "accessed"],
+      "properties": {
+        "key": { "type": "string", "minLength": 1 },
+        "title": { "type": "string", "minLength": 1 },
+        "publisher": { "type": "string", "minLength": 1 },
+        "source_type": { "type": "string", "minLength": 1 },
+        "url": { "type": "string", "format": "uri" },
+        "accessed": { "type": "string", "format": "date" }
+      }
+    }
+  }
+}
