@@ -2,7 +2,7 @@
 
 ## Release Classification
 
-Current classification: **candidate; not published**.
+Current classification: **stable; v0.6.1 published on 2026-07-19**.
 
 This gate is evidence-driven. No `v0.6.1` tag, GitHub Release, announcement,
 or claim of release completeness is permitted until every applicable item is
@@ -69,9 +69,9 @@ checked and recorded.
 
 ## Publication Evidence
 
-- [ ] GitHub Actions supported Python/Node CI is green for the final pre-tag
+- [x] GitHub Actions supported Python/Node CI is green for the final pre-tag
   commit without a Node 20 runtime deprecation notice.
-- [ ] A manually dispatched pre-tag release-artifact run builds distributions,
+- [x] A manually dispatched pre-tag release-artifact run builds distributions,
   runs the full suite, creates `SHA256SUMS`, and records provenance. The
   downloaded artifact and checksum manifest are independently verified.
 - [x] README, release notes, dependency review, and gate match the final
@@ -81,10 +81,36 @@ checked and recorded.
 
 ## Tag And Publication Evidence
 
-This section remains open in the tagged source until tag CI and tag-triggered
-release artifacts have passed and the attestation and checksums are verified.
-The final `main`-branch record will capture that evidence without rewriting the
-published tag.
+## Pre-Tag Evidence
+
+- GitHub [CI #29](https://github.com/v-k-tsalikidis/security-headers-auditor/actions/runs/29700484971)
+  passed for final pre-tag commit `9b9fb01`, with all Python matrix and frontend
+  jobs successful. The final job logs contain no GitHub Node 20 action-runtime
+  deprecation notice.
+- Manually dispatched [Release Artifacts #7](https://github.com/v-k-tsalikidis/security-headers-auditor/actions/runs/29700551673)
+  passed for `9b9fb01`; its publish job was skipped by design because no tag
+  existed. The downloaded artifact matched GitHub's published artifact digest
+  `049f59ffe360e41913b53d05975668235ea283c8735807c366a289f570192922`, and
+  its wheel and source archive matched the enclosed, artifact-relative
+  `SHA256SUMS` manifest directly.
+  [Attestation #36059553](https://github.com/v-k-tsalikidis/security-headers-auditor/attestations/36059553)
+  records Sigstore build provenance for the wheel, source archive, and checksum
+  manifest.
+
+## Tag And Publication Evidence
+
+- Annotated tag `v0.6.1` points to `9b9fb01`. GitHub
+  [CI #30](https://github.com/v-k-tsalikidis/security-headers-auditor/actions/runs/29700613781)
+  passed for that tag.
+- Tag-triggered [Release Artifacts #8](https://github.com/v-k-tsalikidis/security-headers-auditor/actions/runs/29700613787)
+  passed: package and publish jobs both succeeded, and the workflow created the
+  public [v0.6.1 GitHub Release](https://github.com/v-k-tsalikidis/security-headers-auditor/releases/tag/v0.6.1).
+- The downloaded tag artifact matched GitHub's published artifact digest
+  `ed78a67a3710f1364784ebb10ef6d77dc77e2b505731302def2a60171ed3c0d8`, and
+  its wheel and source archive matched the enclosed `SHA256SUMS` manifest
+  directly. [Attestation #36059726](https://github.com/v-k-tsalikidis/security-headers-auditor/attestations/36059726)
+  records tag-scoped Sigstore build provenance for the wheel, source archive,
+  and checksum manifest.
 
 Any non-applicable item requires a written rationale. Historical v0.6 evidence
 does not satisfy this v0.6.1 release gate.
