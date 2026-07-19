@@ -64,14 +64,14 @@ CITATIONS: dict[str, Citation] = {
     ),
     "owasp-wstg-headers": Citation(
         key="owasp-wstg-headers",
-        title="Testing for HTTP Security Headers",
+        title="Testing Other HTTP Security Header Misconfigurations",
         publisher="OWASP Web Security Testing Guide",
         source_type="official testing guidance",
         url=(
             "https://owasp.org/www-project-web-security-testing-guide/latest/"
             "4-Web_Application_Security_Testing/"
             "02-Configuration_and_Deployment_Management_Testing/"
-            "14-Testing_for_HTTP_Security_Headers"
+            "14-Test_Other_HTTP_Security_Header_Misconfigurations"
         ),
     ),
     "rfc-6797": Citation(
@@ -163,7 +163,10 @@ CITATIONS: dict[str, Citation] = {
         title="MITRE D3FEND D3-ACH: Application Configuration Hardening",
         publisher="MITRE D3FEND",
         source_type="defensive technique knowledge base",
-        url="https://d3fend.mitre.org/technique/d3f:ApplicationConfigurationHardening/",
+        url=(
+            "https://next.d3fend.mitre.org/technique/"
+            "d3f%3AApplicationConfigurationHardening/"
+        ),
     ),
     "csp-is-dead": Citation(
         key="csp-is-dead",

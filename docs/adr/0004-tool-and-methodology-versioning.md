@@ -1,6 +1,6 @@
 # ADR 0004: Tool And Methodology Versioning
 
-**Status:** Accepted for v0.5 implementation
+**Status:** Accepted and implemented
 **Date:** 2026-07-19
 
 ## Context

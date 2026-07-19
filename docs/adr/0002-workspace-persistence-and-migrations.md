@@ -1,6 +1,6 @@
 # ADR 0002: Workspace Persistence And Migrations
 
-**Status:** Accepted for implementation
+**Status:** Accepted and implemented
 **Date:** 2026-07-19
 
 ## Context
@@ -37,6 +37,8 @@ Workspace document:
 - zero or one existing approved baseline;
 - latest per-target summary containing score, profile, status, and control-state
   metadata only;
+- a workspace-only list of disabled target identifiers, separate from the v0.4
+  policy contract;
 - created and updated timestamps;
 - no authorization token, raw headers, cookies, credentials, or report body.
 
@@ -83,6 +85,10 @@ layout. A workspace JSON migration runs in memory and validates before write.
 - Show a preview and require confirmation before replacing local state.
 - Do not run imported targets automatically.
 - Export the canonical workspace document without SQLite metadata.
+
+The implemented import API validates a bounded JSON request, provides a
+non-mutating preview, and requires an explicit create-or-replace commit with a
+revision check. The frontend applies the same 2 MiB file limit before parsing.
 
 ## Retention
 

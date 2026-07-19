@@ -464,7 +464,7 @@ class BaselineRegressionTests(unittest.TestCase):
 
 class EvidenceMappingTests(unittest.TestCase):
     def test_manifest_is_versioned_and_evidence_only(self):
-        self.assertEqual(MAPPING_SET_VERSION, "2026.07.1")
+        self.assertEqual(MAPPING_SET_VERSION, "2026.07.2")
         self.assertEqual(
             MAPPING_MANIFEST.claims_policy,
             "supporting-evidence-only",
@@ -510,7 +510,7 @@ class CIOutputTests(unittest.TestCase):
         payload = json.loads(render_assurance_json(self.run))
         self.assertEqual(payload["outcome"], "failed")
         self.assertEqual(payload["exit_code"], 1)
-        self.assertEqual(payload["mapping_set_version"], "2026.07.1")
+        self.assertEqual(payload["mapping_set_version"], "2026.07.2")
 
     def test_sarif_contains_regression_diagnostics(self):
         payload = json.loads(render_sarif(self.run))

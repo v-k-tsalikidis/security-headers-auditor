@@ -18,12 +18,12 @@ below has recorded evidence.
 
 ## Security And Privacy
 
-- [ ] Repo-specific threat model reviewed.
+- [x] Repo-specific threat model reviewed and implementation-aligned.
 - [x] Loopback-only binding verified by integration test.
 - [x] Session token is random, memory-only, and absent from logs and storage.
 - [x] Host, Origin, content type, request size, and Fetch Metadata checks pass.
 - [x] Cross-origin and tokenless requests fail.
-- [ ] Imported targets never auto-run.
+- [x] Imported targets never auto-run; preview and explicit commit are tested.
 - [x] Raw response values are absent from persisted summaries.
 - [x] Query redaction and redirect authorization behavior remains effective.
 - [x] Frontend CSP and no-third-party-runtime policy verified by static-serving
@@ -54,12 +54,12 @@ below has recorded evidence.
 
 ## Framework Evidence
 
-- [ ] OWASP Secure Headers and ASVS sources re-reviewed.
-- [ ] WSTG-CONF-14 coverage and limitations represented.
-- [ ] NIST relationships remain control-informed only.
-- [ ] ATT&CK threat context is non-scoring and primary-source grounded.
-- [ ] D3FEND relationships are marked inferred where applicable.
-- [ ] Reports contain no compliance or certification claim.
+- [x] OWASP Secure Headers and ASVS sources re-reviewed.
+- [x] WSTG-CONF-14 coverage and limitations represented.
+- [x] NIST relationships remain control-informed only.
+- [x] ATT&CK threat context is non-scoring and primary-source grounded.
+- [x] D3FEND relationships are marked inferred where applicable.
+- [x] Reports contain no compliance or certification claim.
 - [x] SARIF 2.1.0 output validates against the official OASIS schema.
 
 ## Quality And Packaging

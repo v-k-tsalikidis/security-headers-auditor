@@ -1,6 +1,6 @@
 # ADR 0001: Loopback Workspace Runtime
 
-**Status:** Accepted for implementation
+**Status:** Accepted and implemented
 **Date:** 2026-07-19
 
 ## Context
@@ -42,6 +42,14 @@ Runtime properties:
 The token is delivered in the URL fragment, removed from browser history after
 bootstrap, retained only in page memory, and never written to logs or
 persistence.
+
+## Implementation Evidence
+
+`workspace/server.py` binds the threaded HTTP server only to `127.0.0.1` and
+`workspace/security.py` enforces the session token, exact Host and Origin,
+Fetch Metadata, JSON content type, and the bounded request body. The workspace
+integration suite covers tokenless, hostile-origin, and static-serving cases.
+Browser workflow and accessibility evidence remains a release-gate requirement.
 
 ## Consequences
 

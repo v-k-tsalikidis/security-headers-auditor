@@ -408,7 +408,7 @@ class ReportRegressionTests(unittest.TestCase):
     def test_markdown_report_records_profile_and_research(self):
         report = render_markdown([self._result("brochure")])
         self.assertIn("Methodology version: `0.4.0`", report)
-        self.assertIn("Evidence mapping set: `2026.07.1`", report)
+        self.assertIn("Evidence mapping set: `2026.07.2`", report)
         self.assertIn("### Assurance Controls", report)
         self.assertIn("### Profile Decision", report)
         self.assertIn(
@@ -420,9 +420,22 @@ class ReportRegressionTests(unittest.TestCase):
     def test_json_report_exposes_methodology_and_profile(self):
         payload = json.loads(render_json([self._result("api")]))
         self.assertEqual(payload["methodology_version"], "0.4.0")
-        self.assertEqual(payload["mapping_set_version"], "2026.07.1")
+        self.assertEqual(payload["mapping_set_version"], "2026.07.2")
         self.assertEqual(payload["results"][0]["selected_profile"], "api")
         self.assertEqual(payload["results"][0]["score"], 100)
+
+    def test_reports_do_not_make_compliance_or_certification_claims(self):
+        result = self._result("app")
+        markdown = render_markdown([result]).lower()
+        html = render_html([result]).lower()
+        report_json = render_json([result]).lower()
+
+        for rendered in (markdown, html, report_json):
+            self.assertNotIn("compliant", rendered)
+            self.assertNotIn("certified", rendered)
+
+        self.assertIn("not evidence of compromise or regulatory compliance", markdown)
+        self.assertIn("not compliance certification", html)
 
     def test_html_report_is_self_contained_and_script_free(self):
         html = render_html([self._result("app")])

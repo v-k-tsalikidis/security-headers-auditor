@@ -56,7 +56,7 @@ const bootstrap: Bootstrap = {
   tool_version: "0.5.0",
   methodology_version: "0.4.0",
   workspace_schema_version: "1.1",
-  mapping_set_version: "2026.07.1",
+  mapping_set_version: "2026.07.2",
   allow_private_targets: false,
   workspaces: [
     {
@@ -71,7 +71,7 @@ const bootstrap: Bootstrap = {
 
 const run: AssurancePayload = {
   methodology_version: "0.5.0",
-  mapping_set_version: "2026.07.1",
+  mapping_set_version: "2026.07.2",
   policy_name: "production-assurance",
   policy_schema_version: "1.0",
   baseline_schema_version: null,
@@ -86,7 +86,7 @@ const run: AssurancePayload = {
 const candidate: BaselineCandidate = {
   schema_version: "1.0",
   methodology_version: "0.5.0",
-  mapping_set_version: "2026.07.1",
+  mapping_set_version: "2026.07.2",
   policy_name: "production-assurance",
   targets: {
     "customer-portal": {

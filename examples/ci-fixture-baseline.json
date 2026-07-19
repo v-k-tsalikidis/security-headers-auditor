@@ -1,5 +1,5 @@
 {
-  "mapping_set_version": "2026.07.1",
+  "mapping_set_version": "2026.07.2",
   "methodology_version": "0.4.0",
   "policy_name": "deterministic-local-ci",
   "schema_version": "1.0",

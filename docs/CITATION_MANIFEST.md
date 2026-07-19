@@ -29,7 +29,11 @@ scoring model.
 | `owasp-secure-headers` | [OWASP Secure Headers Project](https://owasp.org/www-project-secure-headers/) | Header coverage and deployment guidance. |
 | `owasp-rest` | [OWASP REST Security Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/REST_Security_Cheat_Sheet.html) | API-specific applicability and response guidance. |
 | `owasp-csp-testing` | [OWASP WSTG: Testing for Content Security Policy](https://owasp.org/www-project-web-security-testing-guide/latest/4-Web_Application_Security_Testing/02-Configuration_and_Deployment_Management_Testing/12-Test_for_Content_Security_Policy) | CSP review methodology. |
+| `owasp-wstg-headers` | [OWASP WSTG-CONF-14: Testing Other HTTP Security Header Misconfigurations](https://owasp.org/www-project-web-security-testing-guide/latest/4-Web_Application_Security_Testing/02-Configuration_and_Deployment_Management_Testing/14-Test_Other_HTTP_Security_Header_Misconfigurations) | Bounded HTTP security-header test-procedure alignment. |
 | `nist-800-53r5` | [NIST SP 800-53 Rev. 5](https://csrc.nist.gov/pubs/sp/800/53/r5/upd1/final) | Control-informed relationships only; not compliance testing. |
+| `mitre-attack-m1021` | [MITRE ATT&CK M1021: Restrict Web-Based Content](https://attack.mitre.org/mitigations/M1021/) | Non-scoring CSP threat-mitigation context. |
+| `mitre-attack-t1027-006` | [MITRE ATT&CK T1027.006: HTML Smuggling](https://attack.mitre.org/techniques/T1027/006/) | Related, non-scoring CSP mitigation context. |
+| `mitre-d3fend-ach` | [MITRE D3FEND D3-ACH: Application Configuration Hardening](https://next.d3fend.mitre.org/technique/d3f%3AApplicationConfigurationHardening/) | Inferred, non-scoring defensive-technique context. |
 | `oasis-sarif-2.1.0` | [OASIS SARIF 2.1.0 JSON Schema](https://docs.oasis-open.org/sarif/sarif/v2.1.0/os/schemas/sarif-schema-2.1.0.json) | Normative schema used to validate passing and regression CI artifacts. |
 
 ## Peer-Reviewed Research
@@ -49,7 +53,7 @@ scoring model.
 
 ## Versioned Evidence Mappings
 
-Mapping set `2026.07.1` is stored in
+Mapping set `2026.07.2` is stored in
 `src/security_headers_auditor/data/compliance_evidence_v1.json`. Every mapping
 contains a framework version, requirement identifier, relationship, rationale,
 limitation, and citation source.
@@ -57,6 +61,11 @@ limitation, and citation source.
 The fixed claims policy is `supporting-evidence-only`. Relationships such as
 `supports`, `related`, and `legacy-support` do not mean `satisfies`, `certifies`,
 or `complies with`.
+
+The `2026.07.2` review replaces a stale WSTG-CONF-14 path and moves the
+D3-ACH source to MITRE's current D3FEND endpoint. It reconfirms the exact
+scope boundaries recorded in the framework-alignment policy; it does not
+change scores or turn any mapping into a compliance decision.
 
 The current set includes:
 

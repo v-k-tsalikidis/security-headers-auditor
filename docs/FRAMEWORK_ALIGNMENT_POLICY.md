@@ -1,6 +1,6 @@
 # Framework Alignment And Claims Policy
 
-**Status:** Accepted for v0.5 design
+**Status:** Accepted and primary-source reviewed for v0.5; release validation pending
 **Reviewed:** 2026-07-19
 
 ## Purpose
@@ -147,12 +147,29 @@ percentage, or pass/fail matrix.
 - Deprecated, renumbered, or withdrawn requirements remain in historical
   mapping sets but are not silently reinterpreted.
 
+## Primary-Source Review Record
+
+On 2026-07-19, mapping set `2026.07.2` was reviewed against the official
+OWASP ASVS 5.0.0 requirements, the current OWASP WSTG-CONF-12 and
+WSTG-CONF-14 procedures, NIST SP 800-53 Rev. 5 Update 1, MITRE ATT&CK M1021
+and T1027.006, and MITRE D3FEND D3-ACH. The review confirmed that:
+
+- ASVS entries stay limited to observed response evidence and retain their
+  route, browser, and application-behavior limitations.
+- WSTG-CONF-14 is represented as bounded test-procedure alignment, rather than
+  full configuration or browser-behavior validation.
+- NIST entries remain control-informed relationships only.
+- ATT&CK stays non-scoring threat context; M1021 is a direct CSP mitigation
+  relationship, while the T1027.006 relationship is explicitly related.
+- D3-ACH remains an auditor-maintained inferred relationship, not a
+  header-specific D3FEND assertion.
+
 ## References
 
 - OWASP Secure Headers Project:
   https://owasp.org/www-project-secure-headers/
 - OWASP WSTG, WSTG-CONF-14:
-  https://owasp.org/www-project-web-security-testing-guide/latest/4-Web_Application_Security_Testing/02-Configuration_and_Deployment_Management_Testing/14-Testing_for_HTTP_Security_Headers
+  https://owasp.org/www-project-web-security-testing-guide/latest/4-Web_Application_Security_Testing/02-Configuration_and_Deployment_Management_Testing/14-Test_Other_HTTP_Security_Header_Misconfigurations
 - OWASP ASVS 5.0.0:
   https://github.com/OWASP/ASVS/tree/v5.0.0
 - NIST SP 800-53 Rev. 5:
@@ -162,6 +179,6 @@ percentage, or pass/fail matrix.
 - MITRE ATT&CK T1027.006:
   https://attack.mitre.org/techniques/T1027/006/
 - MITRE D3FEND D3-ACH:
-  https://d3fend.mitre.org/technique/d3f:ApplicationConfigurationHardening/
+  https://next.d3fend.mitre.org/technique/d3f%3AApplicationConfigurationHardening/
 - OASIS SARIF 2.1.0:
   https://docs.oasis-open.org/sarif/sarif/v2.1.0/

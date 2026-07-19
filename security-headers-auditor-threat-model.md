@@ -22,9 +22,9 @@ In scope:
 
 - Python audit, assurance, report, and CLI modules under
   `src/security_headers_auditor/`;
-- planned loopback runtime and workspace UI described in
+- loopback runtime and workspace UI described in
   `docs/adr/0001-loopback-workspace-runtime.md`;
-- planned SQLite persistence and import/export described in
+- SQLite persistence and import/export described in
   `docs/adr/0002-workspace-persistence-and-migrations.md`;
 - policy, baseline, report, and future workspace JSON inputs;
 - packaged frontend assets, build workflow, and release artifacts;
@@ -75,9 +75,9 @@ Any affirmative answer requires a new threat-model review.
   in `report.py` and `ci_report.py`.
 - **Framework data:** loads packaged, versioned relationship data through
   `compliance.py`.
-- **Planned loopback workspace:** serves bundled UI assets and a token-protected
+- **Loopback workspace:** serves bundled UI assets and a token-protected
   local JSON API, as constrained by ADR 0001.
-- **Planned persistence:** stores canonical workspace documents and minimal
+- **Workspace persistence:** stores canonical workspace documents and minimal
   summaries in SQLite, as constrained by ADR 0002.
 
 ### Data flows and trust boundaries
@@ -94,12 +94,12 @@ Any affirmative answer requires a new threat-model review.
   untrusted.
 - Policy or baseline file -> Assurance engine: strict JSON crosses a local-file
   boundary. Unknown fields and incompatible versions are rejected.
-- Browser -> Planned loopback API: target commands and workspace changes cross
+- Browser -> loopback API: target commands and workspace changes cross
   a localhost web boundary. Session token, same-origin, Fetch Metadata, content
-  type, and size checks are required.
-- Planned API -> SQLite: canonical workspace state crosses a local persistence
+  type, and size checks are enforced.
+- Loopback API -> SQLite: canonical workspace state crosses a local persistence
   boundary. Schema validation, optimistic revision, and atomic transactions are
-  required.
+  enforced.
 - Renderers -> Report or CI artifact: security evidence crosses an export
   boundary controlled by the operator or CI platform. Redaction and explicit
   retention controls apply.
@@ -185,9 +185,9 @@ flowchart LR
 | Output path | `--output` and `--write-baseline` | CLI -> filesystem | Explicit user-selected write; can overwrite accessible files | `src/security_headers_auditor/cli.py:_write_output`, `assurance.py:write_baseline` |
 | HTML and Markdown rendering | Report generation | Findings -> document | Hostile evidence must be escaped | `src/security_headers_auditor/report.py` |
 | Framework relationship JSON | Package resource load | Build/package -> runtime | Mapping changes affect baseline compatibility | `src/security_headers_auditor/compliance.py:_load_manifest` |
-| Planned workspace API | Browser requests to loopback | Web origin -> local process | Token and same-origin controls are mandatory | `docs/adr/0001-loopback-workspace-runtime.md` |
-| Planned workspace import | User-selected JSON | File -> local process | Must validate and preview before commit or run | `docs/adr/0002-workspace-persistence-and-migrations.md` |
-| Planned SQLite database | Local application data | API -> storage | Must enforce revision and atomic migration | `docs/adr/0002-workspace-persistence-and-migrations.md` |
+| Workspace API | Browser requests to loopback | Web origin -> local process | Token, same-origin, Fetch Metadata, JSON, and body-size controls are enforced | `workspace/server.py`, `workspace/security.py` |
+| Workspace import | User-selected JSON | File -> local process | 2 MiB limit, validation, preview, explicit commit, and no automatic run | `workspace/service.py:preview_import`, `commit_import` |
+| SQLite database | Local application data | API -> storage | Revision checks, atomic save, backup, and migration validation | `workspace/repository.py`, `workspace/migrations.py` |
 
 ## Top abuse paths
 
@@ -219,18 +219,18 @@ flowchart LR
 
 | Threat ID | Threat source | Prerequisites | Threat action | Impact | Impacted assets | Existing controls | Gaps | Recommended mitigations | Detection ideas | Likelihood | Impact severity | Priority |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| TM-001 | Malicious web origin | Workspace service is running and accepts unauthenticated or weakly checked localhost requests | Submit audits or state changes from another origin | Internal network probing, policy modification, posture disclosure | Target scope, workspace, local network | Planned loopback-only binding in ADR 0001 | Runtime not implemented | 256-bit memory-only token; exact Host and Origin allowlist; reject `Sec-Fetch-Site: cross-site`; JSON-only state changes; no CORS; bounded body; constant-time token check | Count rejected origin, token, and Fetch Metadata requests without logging tokens | Medium | High | High |
+| TM-001 | Malicious web origin | Workspace service is running | Submit audits or state changes from another origin | Internal network probing, policy modification, posture disclosure | Target scope, workspace, local network | Loopback-only binding; random memory-only token; exact Host/Origin; Fetch Metadata; JSON-only state changes; no CORS; bounded body; constant-time token check | Browser network inspection remains release evidence | Count rejected origin, token, and Fetch Metadata requests without logging tokens | Low | High | Medium |
 | TM-002 | Malicious target, DNS owner, or imported policy | Tool can reach private networks and user initiates an audit | Resolve or redirect to loopback, link-local, metadata, or private services outside intended scope | SSRF and internal service interaction | Authorized target scope, local network | Scheme and credential validation; cross-origin redirects blocked by default; workspace public scope validates every resolved address before the initial request, each redirect, and the TCP connection; environment proxies are disabled in public scope | Private-target workspace sessions remain intentionally high-trust | Preserve default-deny public scope; block any mixed or non-global resolution; require explicit per-session private-target authorization; never auto-run imports | Record redacted destination class and blocked-scope reason | Low | High | Medium |
 | TM-003 | Malicious target | Target controls redirect response | Expand request chain to an unauthorized origin | Scope violation and unintended traffic | Authorized target scope | `_ScopeRedirectHandler` blocks cross-origin redirects by default | Explicit override can be overbroad | Preserve default; make workspace authorization per target; show redirect destination before retry; test ports, schemes, IDNs, and same-host upgrade cases | Audit blocked redirects by origin label | Low | High | Medium |
-| TM-004 | Malicious target | Header or error value reaches a renderer or UI | Inject markup, script, formula, or misleading content | Local script execution, token theft, corrupted evidence | Session token, reports, workspace | HTML escaping, safe citation schemes, script-free HTML, Markdown escaping tests | New React UI and future exports are not yet tested | Render all evidence as text; no `dangerouslySetInnerHTML`; restrictive CSP; neutralize spreadsheet formula prefixes if CSV is added; cap values | Browser console and CSP violation review; hostile fixture suite | Medium | High | High |
-| TM-005 | Malicious or malformed import | User selects attacker-controlled workspace, policy, or baseline | Exploit parser assumptions, resource limits, duplicate IDs, or version confusion | DoS, policy weakening, storage corruption | Policy, baseline, workspace | Policy and baseline validators reject unknown/incompatible fields | Workspace schema and limits not implemented | 2 MiB pre-read limit; strict JSON; versioned schemas; semantic validation; count/depth/string limits; preview; no automatic run; atomic commit | Structured import rejection reason and migration audit event | Medium | High | High |
-| TM-006 | Stale tab, crash, or faulty migration | Concurrent UI sessions or version upgrade | Overwrite new state or partially migrate local data | Loss or silent weakening of policy and baseline | Workspace, policy, baseline | ADR 0002 requires revision and transaction | Persistence not implemented | Optimistic revision; SQLite transaction; pre-migration backup; post-migration validation; fail closed on future version; recovery export | Record revision conflicts and migration ID, never document contents | Medium | High | High |
+| TM-004 | Malicious target | Header or error value reaches a renderer or UI | Inject markup, script, formula, or misleading content | Local script execution, token theft, corrupted evidence | Session token, reports, workspace | Escaped HTML and Markdown; React text-node rendering; no `dangerouslySetInnerHTML`; restrictive loopback CSP; hostile fixtures | Browser-driven hostile-rendering inspection remains release evidence | Retain text-only rendering; neutralize spreadsheet formula prefixes if CSV is added; cap values | Browser console and CSP violation review; hostile fixture suite | Low | High | Medium |
+| TM-005 | Malicious or malformed import | User selects attacker-controlled workspace, policy, or baseline | Exploit parser assumptions, resource limits, duplicate IDs, or version confusion | DoS, policy weakening, storage corruption | Policy, baseline, workspace | 2 MiB frontend and API limits; strict schema and semantic validation; versioned migration; preview; explicit revision-bound commit; no automatic run | No streaming parser or deep-JSON nesting budget | Keep fixed document/target/string limits; reject future schemas; keep import preview separate from commit | Structured import rejection reason and migration ID, never document contents | Low | High | Medium |
+| TM-006 | Stale tab, crash, or faulty migration | Concurrent UI sessions or version upgrade | Overwrite new state or partially migrate local data | Loss or silent weakening of policy and baseline | Workspace, policy, baseline | Optimistic revisions; SQLite immediate transactions; backup before physical migration; deterministic document migration; future-version rejection | Recovery UX is limited to export/reload and needs browser evidence | Preserve conflict errors; keep migration fixtures and backup tests | Record revision conflicts and migration ID, never document contents | Low | High | Medium |
 | TM-007 | User or CI misconfiguration | Detailed report is written or uploaded with broad access | Disclose target paths, endpoint values, software details, or security posture | Reconnaissance and privacy exposure | Reports, CI artifacts, headers | Query redaction by default; baselines omit raw values; privacy guide | Artifact retention is external | Pre-export sensitivity summary; default redacted workspace summaries; documented CI retention; no raw headers in persistence | Release artifact inventory; secret and URL-pattern scanning | Medium | Medium | Medium |
-| TM-008 | Compromised dependency or build actor | Release or frontend build chain is compromised | Ship modified code that reads token or changes findings | Arbitrary audits, false results, data disclosure | Package, token, methodology, reports | Locked repository history and CI; no current runtime dependencies beyond Python stdlib | Frontend dependencies and reproducible build not established | Lockfile; minimal dependencies; dependency review; pinned Actions; artifact hash/signing roadmap; wheel content inspection; no remote runtime assets | Software bill of materials, dependency review, artifact hash comparison | Low | High | High |
+| TM-008 | Compromised dependency or build actor | Release or frontend build chain is compromised | Ship modified code that reads token or changes findings | Arbitrary audits, false results, data disclosure | Package, token, methodology, reports | Python runtime uses stdlib; frontend lockfile and built-asset freshness CI; no remote runtime assets | Dependency/license review, SBOM, provenance, and signed artifacts remain open | Minimal dependencies; pinned Actions; wheel inspection; signed provenance and hashes before release | SBOM, dependency review, artifact hash comparison | Low | High | High |
 | TM-009 | Malicious policy author | User trusts a modified policy or baseline | Lower thresholds, remove required controls, or approve weak current state | False assurance and hidden regression | Policy, baseline, methodology trust | Strict schemas, mapping/methodology compatibility, candidate baseline requires pass | No signature or approval metadata | Visible policy and baseline diff; explicit approval; deterministic export; optional detached signature in future; never auto-approve | CI diff gate and baseline hash display | Medium | High | High |
 | TM-010 | Malicious or unstable target | Target delays, returns many redirects, or oversized headers | Consume threads, memory, or time | Workspace unavailability and delayed CI | Availability | Per-request timeout; one HEAD chain and narrow GET fallback | No global response/header or batch concurrency budget | Cap redirects, header bytes, target count, concurrent audits, and total run duration; cancellation support | Duration and failure-category metrics kept locally | Medium | Medium | Medium |
-| TM-011 | Shared local workstation user | Same account or unlocked profile can open app data and reports | Read or alter workspace state | Posture disclosure or policy tampering | Workspace, reports, baseline | Planned per-user app directory | Local data is not encrypted and same-account isolation is impossible | Restrictive file permissions; clear-data and export controls; document limitation; recommend managed device and locked account | Startup permission check without collecting identity | Low | Medium | Low |
-| TM-012 | Framework-data maintainer or accidental mapping error | Mapping manifest change passes superficial review | Present inaccurate standard, control, or ATT&CK relationship | Misleading security interpretation and baseline invalidation | Methodology and framework trust | Versioned mapping set; rationale and limitations; duplicate checks | Evidence-family taxonomy not implemented | Primary-source review; family/confidence fields; schema validation; golden report tests; mapping diff in release notes | Mapping-set hash and review-date output | Low | Medium | Medium |
+| TM-011 | Shared local workstation user | Same account or unlocked profile can open app data and reports | Read or alter workspace state | Posture disclosure or policy tampering | Workspace, reports, baseline | Per-user app directory; restrictive directory/database modes where supported; explicit delete/export controls | Local data is not encrypted and same-account isolation is impossible | Document limitation; recommend managed device and locked account | Startup permission check without collecting identity | Low | Medium | Low |
+| TM-012 | Framework-data maintainer or accidental mapping error | Mapping manifest change passes superficial review | Present inaccurate standard, control, or ATT&CK relationship | Misleading security interpretation and baseline invalidation | Methodology and framework trust | Versioned mapping set; evidence family, confidence, rationale, limitations, duplicate checks, golden tests, and a 2026-07-19 primary-source review | Ongoing framework maintenance requires future reviewed diffs | Preserve the reviewed source record; require mapping review date and release-note summary for every update | Mapping-set hash and review-date output | Low | Medium | Medium |
 
 ## Criticality calibration
 
@@ -238,8 +238,9 @@ flowchart LR
 
 Remote code execution in the local process, silent execution of imported
 targets at scale, or a default remote bind that exposes audit capability without
-authorization. No current threat is ranked critical because the workspace is
-not yet implemented and the accepted design explicitly forbids these states.
+authorization. No current threat is ranked critical because the implemented
+workspace defaults to loopback-only binding, requires a session token, and does
+not automatically execute imported targets.
 
 ### High
 
@@ -264,29 +265,27 @@ not yet implemented and the accepted design explicitly forbids these states.
 - Cosmetic report manipulation that cannot execute code or alter persisted
   decisions.
 
-## Required mitigations before workspace release
+## Release Safeguard Status
 
-1. Implement the loopback request guard as a reusable function tested with
-   tokenless, wrong-token, missing-origin, hostile-origin, DNS-rebinding Host,
-   cross-site Fetch Metadata, wrong content type, and oversized-body cases.
-2. Add destination address classification before connection and at every
-   redirect. Require an explicit launch or per-target decision for private
-   address space.
-3. Keep the session token out of query strings, logs, persistence, error bodies,
-   and exported workspace data.
-4. Validate workspace documents before and after migrations; commit only in one
-   SQLite transaction with revision comparison.
-5. Keep detailed header evidence in memory or explicit exports. Persist only
-   baseline-style summaries.
-6. Reuse the Python evaluator and render imported or remote text only through
-   escaped text nodes.
-7. Package no third-party runtime assets and send a restrictive CSP from the
-   loopback server.
-8. Require an explicit click to run every imported or newly added target.
-9. Add primary-source mapping schema, confidence, and limitations before adding
-   ATT&CK or D3FEND to reports.
-10. Add hostile-origin integration tests and browser network inspection to the
-    v0.5 release gate.
+- [x] Loopback request guard rejects tokenless, hostile-origin, malformed, and
+  oversized requests.
+- [x] Public-scope address validation occurs before initial connection, on
+  redirects, and at connection time; private targets require an explicit
+  workspace launch option.
+- [x] Session tokens are fragment-delivered, memory-only, and absent from logs,
+  persistence, error bodies, and exports.
+- [x] Workspace documents validate before persistence; migrations, backups, and
+  revision checks are deterministic and transactional.
+- [x] Detailed evidence remains in memory or explicit reports; persisted
+  summaries contain no raw header values.
+- [x] The workspace uses the Python evaluator and React text rendering; the
+  server delivers a restrictive CSP with no third-party runtime assets.
+- [x] Imports are bounded, previewed, confirmed, and never auto-run; disabled
+  targets cannot run or enter a candidate baseline.
+- [x] Framework mapping records have evidence family, confidence, rationale,
+  limitation, and primary-source citation fields.
+- [ ] Complete browser network inspection, hostile-rendering E2E, dependency
+  review, and signed release evidence.
 
 ## Focus paths for security review
 
@@ -298,19 +297,19 @@ not yet implemented and the accepted design explicitly forbids these states.
 | `src/security_headers_auditor/ci_report.py` | Produces machine-readable artifacts consumed by external systems | TM-004, TM-007 |
 | `src/security_headers_auditor/compliance.py` | Loads security interpretation data that affects trust and compatibility | TM-012 |
 | `src/security_headers_auditor/data/compliance_evidence_v1.json` | Contains versioned framework claims and limitations | TM-012 |
-| `src/security_headers_auditor/workspace/` | Planned localhost API, authorization, persistence, and migration boundary | TM-001, TM-002, TM-005, TM-006, TM-011 |
-| `frontend/` | Planned same-origin UI handling token and hostile evidence | TM-001, TM-004, TM-008 |
+| `src/security_headers_auditor/workspace/` | Localhost API, authorization, persistence, import, and migration boundary | TM-001, TM-002, TM-005, TM-006, TM-011 |
+| `frontend/` | Same-origin UI handling token, imports, and hostile evidence | TM-001, TM-004, TM-008 |
 | `.github/workflows/ci.yml` | Build and artifact publication trust boundary | TM-007, TM-008 |
 | `pyproject.toml` | Defines package contents, dependencies, and shipped UI assets | TM-008 |
 
 ## Quality check
 
-- [x] Current CLI, file, network, report, and planned workspace entry points are
+- [x] Current CLI, file, network, report, and workspace entry points are
   covered.
 - [x] Every identified trust boundary appears in at least one threat.
 - [x] Runtime, persistence, frontend build, CI, and exports are separated.
 - [x] Attacker-controlled, operator-controlled, and developer-controlled inputs
   are distinguished.
 - [x] Deployment, data-sensitivity, and authentication assumptions are explicit.
-- [x] Planned controls are not misrepresented as implemented controls.
+- [x] Implemented controls and remaining release evidence are distinguished.
 - [x] Open questions that would materially change risk are recorded.
