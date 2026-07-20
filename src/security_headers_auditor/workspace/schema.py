@@ -22,6 +22,7 @@ MAX_WORKSPACE_BYTES = 2 * 1024 * 1024
 MAX_TARGETS = 100
 MAX_NAME_LENGTH = 100
 MAX_SUMMARIES = 100
+MAX_AUDIT_HISTORY_ENTRIES = 50
 
 
 class WorkspaceValidationError(ValueError):
@@ -36,6 +37,7 @@ ROOT_FIELDS = {
     "disabled_target_ids",
     "approved_baseline",
     "latest_summaries",
+    "audit_history",
     "created_at",
     "updated_at",
 }
@@ -58,6 +60,25 @@ SUMMARY_FINDING_FIELDS = {
     "applicability",
     "points",
     "max_points",
+}
+
+AUDIT_HISTORY_FIELDS = {
+    "audit_id",
+    "completed_at",
+    "run_kind",
+    "policy_name",
+    "outcome",
+    "exit_code",
+    "assessments",
+}
+
+AUDIT_HISTORY_ASSESSMENT_FIELDS = {
+    "target_id",
+    "target",
+    "selected_profile",
+    "score",
+    "outcome",
+    "exit_code",
 }
 
 
@@ -168,6 +189,8 @@ def validate_workspace(payload: dict[str, Any]) -> dict[str, Any]:
     for target_id, summary in summaries.items():
         _validate_summary(target_id, summary)
 
+    _validate_audit_history(payload["audit_history"])
+
     return payload
 
 
@@ -231,6 +254,85 @@ def _validate_summary(target_id: str, summary: Any) -> None:
             0,
             100,
         )
+
+
+def _validate_audit_history(history: Any) -> None:
+    if not isinstance(history, list):
+        raise WorkspaceValidationError("audit_history must be a JSON array.")
+    if len(history) > MAX_AUDIT_HISTORY_ENTRIES:
+        raise WorkspaceValidationError(
+            f"Workspace exceeds the {MAX_AUDIT_HISTORY_ENTRIES}-entry audit-history limit."
+        )
+
+    audit_ids: set[str] = set()
+    for index, entry in enumerate(history):
+        context = f"audit_history[{index}]"
+        if not isinstance(entry, dict):
+            raise WorkspaceValidationError(f"{context} must be a JSON object.")
+        _require_exact_fields(entry, AUDIT_HISTORY_FIELDS, context)
+        _uuid(entry["audit_id"], f"{context}.audit_id")
+        if entry["audit_id"] in audit_ids:
+            raise WorkspaceValidationError("audit_history must not contain duplicate audit ids.")
+        audit_ids.add(entry["audit_id"])
+        _timestamp(entry["completed_at"], f"{context}.completed_at")
+        if entry["run_kind"] not in {"target", "assurance"}:
+            raise WorkspaceValidationError(f"{context}.run_kind is invalid.")
+        _bounded_string(entry["policy_name"], f"{context}.policy_name", 200)
+        if entry["outcome"] not in {"passed", "failed", "operational_error"}:
+            raise WorkspaceValidationError(f"{context}.outcome is invalid.")
+        _bounded_integer(entry["exit_code"], f"{context}.exit_code", 0, 2)
+
+        assessments = entry["assessments"]
+        if not isinstance(assessments, list) or not assessments:
+            raise WorkspaceValidationError(
+                f"{context}.assessments must be a non-empty JSON array."
+            )
+        if len(assessments) > MAX_TARGETS:
+            raise WorkspaceValidationError(
+                f"{context}.assessments exceeds the {MAX_TARGETS}-target limit."
+            )
+        target_ids: set[str] = set()
+        for assessment_index, assessment in enumerate(assessments):
+            assessment_context = f"{context}.assessments[{assessment_index}]"
+            if not isinstance(assessment, dict):
+                raise WorkspaceValidationError(
+                    f"{assessment_context} must be a JSON object."
+                )
+            _require_exact_fields(
+                assessment,
+                AUDIT_HISTORY_ASSESSMENT_FIELDS,
+                assessment_context,
+            )
+            _bounded_string(
+                assessment["target_id"],
+                f"{assessment_context}.target_id",
+                100,
+            )
+            if assessment["target_id"] in target_ids:
+                raise WorkspaceValidationError(
+                    f"{context}.assessments must not contain duplicate target ids."
+                )
+            target_ids.add(assessment["target_id"])
+            _safe_target(assessment["target"], f"{assessment_context}.target")
+            if assessment["selected_profile"] not in {"app", "api", "brochure"}:
+                raise WorkspaceValidationError(
+                    f"{assessment_context}.selected_profile is invalid."
+                )
+            _bounded_integer(assessment["score"], f"{assessment_context}.score", 0, 100)
+            if assessment["outcome"] not in {
+                "passed",
+                "failed",
+                "operational_error",
+            }:
+                raise WorkspaceValidationError(
+                    f"{assessment_context}.outcome is invalid."
+                )
+            _bounded_integer(
+                assessment["exit_code"],
+                f"{assessment_context}.exit_code",
+                0,
+                2,
+            )
 
 
 def _require_exact_fields(

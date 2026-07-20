@@ -42,7 +42,7 @@ FIXTURES = Path(__file__).parent / "fixtures"
 
 def workspace_payload() -> dict[str, object]:
     return {
-        "schema_version": "1.1",
+        "schema_version": "1.2",
         "workspace_id": "5f0f84f3-1775-4de5-b2c8-3768c9d03f45",
         "name": "Fixture workspace",
         "policy": {
@@ -72,6 +72,7 @@ def workspace_payload() -> dict[str, object]:
         "disabled_target_ids": [],
         "approved_baseline": None,
         "latest_summaries": {},
+        "audit_history": [],
         "created_at": "2026-07-19T10:00:00+00:00",
         "updated_at": "2026-07-19T10:00:00+00:00",
     }
@@ -171,16 +172,65 @@ class WorkspaceSchemaTests(unittest.TestCase):
         self.assertEqual(parsed, workspace_payload())
         self.assertEqual(applied, ())
 
-    def test_v1_0_workspace_migrates_disabled_target_state_deterministically(self):
+    def test_v1_0_workspace_migrates_to_current_schema_deterministically(self):
         legacy = workspace_payload()
         legacy["schema_version"] = "1.0"
         del legacy["disabled_target_ids"]
+        del legacy["audit_history"]
 
         migrated, applied = parse_workspace_bytes(json.dumps(legacy).encode())
 
-        self.assertEqual(migrated["schema_version"], "1.1")
+        self.assertEqual(migrated["schema_version"], "1.2")
         self.assertEqual(migrated["disabled_target_ids"], [])
-        self.assertEqual(applied, ("workspace-1.0-to-1.1",))
+        self.assertEqual(migrated["audit_history"], [])
+        self.assertEqual(
+            applied,
+            ("workspace-1.0-to-1.1", "workspace-1.1-to-1.2"),
+        )
+
+    def test_v1_1_workspace_migrates_empty_audit_history_deterministically(self):
+        legacy = workspace_payload()
+        legacy["schema_version"] = "1.1"
+        del legacy["audit_history"]
+
+        migrated, applied = parse_workspace_bytes(json.dumps(legacy).encode())
+
+        self.assertEqual(migrated["schema_version"], "1.2")
+        self.assertEqual(migrated["audit_history"], [])
+        self.assertEqual(applied, ("workspace-1.1-to-1.2",))
+
+    def test_audit_history_rejects_raw_response_values_and_excess_entries(self):
+        payload = workspace_payload()
+        payload["audit_history"] = [
+            {
+                "audit_id": "c8a07661-4a6a-4bff-9d8a-1b0168e09d72",
+                "completed_at": "2026-07-19T10:30:00+00:00",
+                "run_kind": "target",
+                "policy_name": "fixture-policy",
+                "outcome": "passed",
+                "exit_code": 0,
+                "assessments": [
+                    {
+                        "target_id": "public-site",
+                        "target": "https://example.test/",
+                        "selected_profile": "brochure",
+                        "score": 90,
+                        "outcome": "passed",
+                        "exit_code": 0,
+                        "value": "max-age=31536000",
+                    }
+                ],
+            }
+        ]
+        with self.assertRaisesRegex(
+            WorkspaceValidationError,
+            "unknown fields: value",
+        ):
+            validate_workspace(payload)
+
+        payload["audit_history"] = [{}] * 51
+        with self.assertRaisesRegex(WorkspaceValidationError, "50-entry"):
+            validate_workspace(payload)
 
     def test_unknown_future_schema_is_rejected_without_mutation(self):
         payload = workspace_payload()
@@ -331,6 +381,114 @@ class WorkspaceServiceTests(unittest.TestCase):
         sarif = self.service.export_current_report(self.workspace_id, "sarif")
         self.assertEqual(json.loads(sarif["content"])["version"], "2.1.0")
 
+    def test_runs_keep_bounded_session_history_and_timestamped_export_names(self):
+        completed_at = "2026-07-20T10:30:00+00:00"
+        with patch(
+            "security_headers_auditor.workspace.service.audit_headers",
+            audit_from_fixture("assurance_ready"),
+        ), patch(
+            "security_headers_auditor.workspace.service._now",
+            return_value=completed_at,
+        ):
+            first_response = self.service.run(
+                self.workspace_id,
+                expected_revision=0,
+                target_id="public-site",
+            )
+            first_report = self.service.export_current_report(self.workspace_id, "html")
+            second_response = self.service.run(
+                self.workspace_id,
+                expected_revision=first_response["record"]["revision"],
+                target_id="public-site",
+            )
+            second_report = self.service.export_current_report(self.workspace_id, "html")
+
+        history = second_response["record"]["document"]["audit_history"]
+        self.assertEqual(len(history), 2)
+        self.assertEqual(history[0]["completed_at"], completed_at)
+        self.assertEqual(history[0]["run_kind"], "target")
+        self.assertEqual(history[0]["assessments"][0]["target_id"], "public-site")
+        self.assertNotIn("value", json.dumps(history))
+        self.assertNotEqual(first_report["filename"], second_report["filename"])
+        self.assertRegex(
+            first_report["filename"],
+            r"^fixture-policy-public-site-20260720T103000Z-[0-9a-f]{8}-report\.html$",
+        )
+        self.assertRegex(
+            second_report["filename"],
+            r"^fixture-policy-public-site-20260720T103000Z-[0-9a-f]{8}-report\.html$",
+        )
+
+    def test_run_discards_only_the_oldest_session_after_history_limit(self):
+        document = self.repository.get(self.workspace_id).document
+        document["audit_history"] = [
+            {
+                "audit_id": f"00000000-0000-4000-8000-{index:012d}",
+                "completed_at": "2026-07-19T10:30:00+00:00",
+                "run_kind": "target",
+                "policy_name": "fixture-policy",
+                "outcome": "passed",
+                "exit_code": 0,
+                "assessments": [
+                    {
+                        "target_id": "public-site",
+                        "target": "https://example.test/",
+                        "selected_profile": "brochure",
+                        "score": 90,
+                        "outcome": "passed",
+                        "exit_code": 0,
+                    }
+                ],
+            }
+            for index in range(50)
+        ]
+        seeded = self.repository.save(document, expected_revision=0)
+
+        with patch(
+            "security_headers_auditor.workspace.service.audit_headers",
+            audit_from_fixture("assurance_ready"),
+        ):
+            response = self.service.run(
+                self.workspace_id,
+                expected_revision=seeded.revision,
+                target_id="public-site",
+            )
+
+        history = response["record"]["document"]["audit_history"]
+        self.assertEqual(len(history), 50)
+        self.assertNotEqual(history[0]["audit_id"], "00000000-0000-4000-8000-000000000000")
+        self.assertEqual(
+            history[-1]["audit_id"],
+            "00000000-0000-4000-8000-000000000048",
+        )
+
+    def test_persisted_session_history_and_summary_always_redact_target_query(self):
+        document = self.repository.get(self.workspace_id).document
+        document["policy"]["targets"][0]["url"] = (
+            "https://example.test/fixture?token=fixture-secret#private"
+        )
+        document["policy"]["targets"][0]["include_query"] = True
+        document["updated_at"] = "2026-07-20T10:30:00+00:00"
+        configured = self.repository.save(document, expected_revision=0)
+
+        with patch(
+            "security_headers_auditor.workspace.service.audit_headers",
+            audit_from_fixture("assurance_ready"),
+        ):
+            response = self.service.run(
+                self.workspace_id,
+                expected_revision=configured.revision,
+                target_id="public-site",
+            )
+
+        persisted = response["record"]["document"]
+        history_target = persisted["audit_history"][0]["assessments"][0]["target"]
+        summary_target = persisted["latest_summaries"]["public-site"]["target"]
+        self.assertNotIn("fixture-secret", history_target)
+        self.assertNotIn("fixture-secret", summary_target)
+        self.assertIn("<redacted>", history_target)
+        self.assertIn("<redacted>", summary_target)
+
     def test_report_export_requires_a_current_in_memory_run(self):
         with self.assertRaisesRegex(ValueError, "run assurance first"):
             self.service.export_current_report(self.workspace_id, "html")
@@ -350,6 +508,7 @@ class WorkspaceServiceTests(unittest.TestCase):
 
         self.assertEqual(saved["revision"], 2)
         self.assertEqual(saved["document"]["latest_summaries"], {})
+        self.assertEqual(len(saved["document"]["audit_history"]), 1)
 
     def test_disabled_targets_are_not_run_or_baselined(self):
         document = self.repository.get(self.workspace_id).document
@@ -599,7 +758,7 @@ class WorkspaceServerIntegrationTests(unittest.TestCase):
         response, payload = self.request("GET", "/api/v1/bootstrap")
         self.assertEqual(response.status, 200)
         bootstrap = json.loads(payload)
-        self.assertEqual(bootstrap["tool_version"], "0.8.0")
+        self.assertEqual(bootstrap["tool_version"], "0.9.0")
         self.assertEqual(bootstrap["methodology_version"], METHODOLOGY_VERSION)
 
     def test_tokenless_and_cross_origin_api_requests_fail(self):

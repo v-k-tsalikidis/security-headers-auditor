@@ -3,9 +3,11 @@
 from __future__ import annotations
 
 from copy import deepcopy
+from dataclasses import dataclass
 from datetime import datetime, timezone
 from threading import RLock
 from typing import Any
+from uuid import uuid4
 
 from ..assurance import (
     AssuranceRun,
@@ -15,7 +17,7 @@ from ..assurance import (
     run_assurance,
     validate_baseline,
 )
-from ..auditor import audit_headers
+from ..auditor import audit_headers, redact_url
 from ..ci_report import render_assurance_json, render_junit, render_sarif
 from ..report import render_html, render_markdown
 from .migrations import CURRENT_WORKSPACE_SCHEMA_VERSION, migrate_workspace
@@ -24,7 +26,18 @@ from .repository import (
     WorkspaceRecord,
     WorkspaceRepository,
 )
-from .schema import validate_workspace
+from .schema import MAX_AUDIT_HISTORY_ENTRIES, validate_workspace
+
+
+@dataclass(frozen=True)
+class _CurrentWorkspaceRun:
+    """One detailed run retained only for the active workspace process."""
+
+    audit_id: str
+    completed_at: str
+    run_kind: str
+    scope_label: str
+    run: AssuranceRun
 
 
 class WorkspaceService:
@@ -37,7 +50,7 @@ class WorkspaceService:
     ):
         self.repository = repository
         self.allow_private_targets = allow_private_targets
-        self._runs: dict[str, AssuranceRun] = {}
+        self._runs: dict[str, _CurrentWorkspaceRun] = {}
         self._runs_lock = RLock()
 
     def bootstrap(self) -> dict[str, Any]:
@@ -234,32 +247,32 @@ class WorkspaceService:
             raise ValueError(
                 "No current in-memory run is available; run assurance first."
             )
-        results = [assessment.result for assessment in run.assessments]
+        results = [assessment.result for assessment in run.run.assessments]
         renderers = {
             "html": (
                 "text/html",
                 "html",
-                lambda: render_html(results, assurance_run=run),
+                lambda: render_html(results, assurance_run=run.run),
             ),
             "markdown": (
                 "text/markdown",
                 "md",
-                lambda: render_markdown(results, assurance_run=run),
+                lambda: render_markdown(results, assurance_run=run.run),
             ),
             "json": (
                 "application/json",
                 "json",
-                lambda: render_assurance_json(run),
+                lambda: render_assurance_json(run.run),
             ),
             "sarif": (
                 "application/sarif+json",
                 "sarif.json",
-                lambda: render_sarif(run),
+                lambda: render_sarif(run.run),
             ),
             "junit": (
                 "application/xml",
                 "junit.xml",
-                lambda: render_junit(run),
+                lambda: render_junit(run.run),
             ),
         }
         selected = renderers.get(report_format)
@@ -271,7 +284,13 @@ class WorkspaceService:
         return {
             "format": report_format,
             "media_type": media_type,
-            "filename": f"{_filename(run.policy_name)}-report.{extension}",
+            "filename": _report_filename(
+                run.run.policy_name,
+                run.scope_label,
+                run.completed_at,
+                run.audit_id,
+                extension,
+            ),
             "content": render(),
         }
 
@@ -338,17 +357,37 @@ class WorkspaceService:
             baseline=baseline,
             audit_function=workspace_audit,
         )
-        with self._runs_lock:
-            self._runs[workspace_id] = run
         completed_at = _now()
         summaries = dict(document["latest_summaries"])
         summaries.update(_summaries_from_run(run, completed_at))
         document["latest_summaries"] = summaries
+        audit_id = str(uuid4())
+        run_kind = "target" if target_id is not None else "assurance"
+        scope_label = target_id or "assurance"
+        history = list(document["audit_history"])
+        history.insert(
+            0,
+            _audit_history_entry(
+                run,
+                audit_id=audit_id,
+                completed_at=completed_at,
+                run_kind=run_kind,
+            ),
+        )
+        document["audit_history"] = history[:MAX_AUDIT_HISTORY_ENTRIES]
         document["updated_at"] = completed_at
         saved = self.repository.save(
             document,
             expected_revision=expected_revision,
         )
+        with self._runs_lock:
+            self._runs[workspace_id] = _CurrentWorkspaceRun(
+                audit_id=audit_id,
+                completed_at=completed_at,
+                run_kind=run_kind,
+                scope_label=scope_label,
+                run=run,
+            )
         return saved, run
 
 
@@ -376,7 +415,7 @@ def _summaries_from_run(
         assessment.target_id: {
             "target_id": assessment.target_id,
             "completed_at": completed_at,
-            "target": assessment.result.target,
+            "target": redact_url(assessment.result.target),
             "selected_profile": (
                 assessment.result.selected_profile or assessment.policy.profile
             ),
@@ -407,6 +446,45 @@ def _summaries_from_run(
             },
         }
         for assessment in run.assessments
+    }
+
+
+def _audit_history_entry(
+    run: AssuranceRun,
+    *,
+    audit_id: str,
+    completed_at: str,
+    run_kind: str,
+) -> dict[str, Any]:
+    """Create a bounded, no-raw-value record for one completed audit."""
+    return {
+        "audit_id": audit_id,
+        "completed_at": completed_at,
+        "run_kind": run_kind,
+        "policy_name": run.policy_name,
+        "outcome": run.outcome,
+        "exit_code": run.exit_code,
+        "assessments": [
+            {
+                "target_id": assessment.target_id,
+                "target": redact_url(assessment.result.target),
+                "selected_profile": (
+                    assessment.result.selected_profile or assessment.policy.profile
+                ),
+                "score": assessment.result.score,
+                "outcome": (
+                    "operational_error"
+                    if assessment.result.error
+                    else _target_outcome(run, assessment.target_id)
+                ),
+                "exit_code": (
+                    2
+                    if assessment.result.error
+                    else (1 if _target_failed(run, assessment.target_id) else 0)
+                ),
+            }
+            for assessment in run.assessments
+        ],
     }
 
 
@@ -531,3 +609,20 @@ def _filename(value: str) -> str:
         for character in value
     )
     return "-".join(part for part in cleaned.split("-") if part) or "assurance"
+
+
+def _report_filename(
+    policy_name: str,
+    scope_label: str,
+    completed_at: str,
+    audit_id: str,
+    extension: str,
+) -> str:
+    """Return a collision-resistant, filesystem-safe explicit-export filename."""
+    timestamp = datetime.fromisoformat(completed_at.replace("Z", "+00:00")).strftime(
+        "%Y%m%dT%H%M%SZ"
+    )
+    return (
+        f"{_filename(policy_name)}-{_filename(scope_label)}-"
+        f"{timestamp}-{audit_id[:8]}-report.{extension}"
+    )

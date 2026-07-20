@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from typing import Any, Callable
 
 
-CURRENT_WORKSPACE_SCHEMA_VERSION = "1.1"
+CURRENT_WORKSPACE_SCHEMA_VERSION = "1.2"
 
 
 class WorkspaceMigrationError(ValueError):
@@ -31,10 +31,19 @@ def _migrate_1_0_to_1_1(payload: dict[str, Any]) -> dict[str, Any]:
     return migrated
 
 
+def _migrate_1_1_to_1_2(payload: dict[str, Any]) -> dict[str, Any]:
+    """Add bounded, data-minimized audit-session history."""
+    migrated = deepcopy(payload)
+    migrated["schema_version"] = "1.2"
+    migrated["audit_history"] = []
+    return migrated
+
+
 # Migrations are registered by exact source version. Keeping this explicit
 # prevents best-effort field copying or silent interpretation of unknown schemas.
 MIGRATIONS: dict[str, tuple[str, str, MigrationFunction]] = {
     "1.0": ("workspace-1.0-to-1.1", "1.1", _migrate_1_0_to_1_1),
+    "1.1": ("workspace-1.1-to-1.2", "1.2", _migrate_1_1_to_1_2),
 }
 
 

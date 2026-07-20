@@ -1,10 +1,11 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { App } from "./App";
 import type {
   AssurancePayload,
+  AuditHistoryEntry,
   BaselineCandidate,
   Bootstrap,
   WorkspaceRecord,
@@ -12,11 +13,15 @@ import type {
 
 const workspaceId = "5f0f84f3-1775-4de5-b2c8-3768c9d03f45";
 
-function record(revision = 0, baseline: BaselineCandidate | null = null): WorkspaceRecord {
+function record(
+  revision = 0,
+  baseline: BaselineCandidate | null = null,
+  auditHistory: AuditHistoryEntry[] = [],
+): WorkspaceRecord {
   return {
     revision,
     document: {
-      schema_version: "1.0",
+      schema_version: "1.2",
       workspace_id: workspaceId,
       name: "Production Web Estate",
       policy: {
@@ -46,6 +51,7 @@ function record(revision = 0, baseline: BaselineCandidate | null = null): Worksp
       disabled_target_ids: [],
       approved_baseline: baseline,
       latest_summaries: {},
+      audit_history: auditHistory,
       created_at: "2026-07-19T10:00:00+00:00",
       updated_at: "2026-07-19T10:00:00+00:00",
     },
@@ -53,16 +59,16 @@ function record(revision = 0, baseline: BaselineCandidate | null = null): Worksp
 }
 
 const bootstrap: Bootstrap = {
-  tool_version: "0.6.1",
+  tool_version: "0.9.0",
   methodology_version: "0.5.0",
-  workspace_schema_version: "1.1",
+  workspace_schema_version: "1.2",
   mapping_set_version: "2026.07.2",
   allow_private_targets: false,
   workspaces: [
     {
       workspace_id: workspaceId,
       revision: 0,
-      schema_version: "1.1",
+      schema_version: "1.2",
       name: "Production Web Estate",
       updated_at: "2026-07-19T10:00:00+00:00",
     },
@@ -99,6 +105,7 @@ const candidate: BaselineCandidate = {
 };
 
 afterEach(() => {
+  cleanup();
   vi.unstubAllGlobals();
 });
 
@@ -245,5 +252,49 @@ describe("workspace baseline approval", () => {
     expect(
       fetchMock.mock.calls.some(([path]) => String(path).endsWith("/run")),
     ).toBe(false);
+  });
+});
+
+describe("workspace audit history", () => {
+  it("shows each persisted audit session separately", async () => {
+    const history: AuditHistoryEntry[] = [
+      {
+        audit_id: "c8a07661-4a6a-4bff-9d8a-1b0168e09d72",
+        completed_at: "2026-07-20T10:30:00+00:00",
+        run_kind: "target",
+        policy_name: "production-assurance",
+        outcome: "passed",
+        exit_code: 0,
+        assessments: [
+          {
+            target_id: "customer-portal",
+            target: "https://example.test/",
+            selected_profile: "app",
+            score: 96,
+            outcome: "passed",
+            exit_code: 0,
+          },
+        ],
+      },
+    ];
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const path = String(input);
+      const payload = path === "/api/v1/bootstrap" ? bootstrap : record(0, null, history);
+      return new Response(JSON.stringify(payload), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    const user = userEvent.setup();
+
+    render(<App sessionToken="test-token" />);
+    await screen.findByRole("heading", { name: "Targets" });
+    await user.click(screen.getByRole("button", { name: "History" }));
+
+    await screen.findByRole("heading", { name: "Audit history" });
+    expect(screen.getByText("Customer Portal")).toBeInTheDocument();
+    expect(screen.getByText("96 / 100")).toBeInTheDocument();
+    expect(screen.getByText("c8a07661")).toBeInTheDocument();
   });
 });

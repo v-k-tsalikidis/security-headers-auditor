@@ -46,6 +46,8 @@ The result is a transparent engineering assessment:
 - Markdown, JSON, and offline self-contained HTML reports;
 - a loopback-only workspace for authorized inventories, results, and reviewed
   baseline approval;
+- a bounded local audit-session history with timestamps and collision-resistant
+  report filenames;
 - deterministic tests with no remote-site dependency.
 
 ## Profiles
@@ -233,6 +235,12 @@ targets with explicit response profiles, then choose **Run** or **Run assurance*
 An import is previewed and requires explicit confirmation; importing never starts
 an assessment. Use `Ctrl+C` in the terminal to stop the local service.
 
+The workspace keeps the latest 50 audit-session summaries in **History**. Each
+entry records its UTC completion time, scope, target score, outcome, and audit
+ID. Detailed header values remain only in the active run and any report you
+explicitly download. Report downloads include the scope, UTC timestamp, and
+audit ID in the filename, so successive audits do not overwrite one another.
+
 Private, loopback, link-local, and reserved addresses are blocked by default.
 For an explicitly authorized internal or test system, opt in only for that
 workspace session:
@@ -343,6 +351,7 @@ The implementation is governed by:
 - [v0.6 Methodology and Delivery Specification](docs/V0.6_METHODOLOGY_SPECIFICATION.md)
 - [v0.7 Controlled Route Assurance Specification](docs/V0.7_METHODOLOGY_SPECIFICATION.md)
 - [v0.8 Portable Review Evidence Capsule Specification](docs/V0.8_METHODOLOGY_SPECIFICATION.md)
+- [v0.9 Workspace Audit History Specification](docs/V0.9_WORKSPACE_AUDIT_HISTORY.md)
 - [v0.5 Workspace Tutorial](docs/V0.5_WORKSPACE_TUTORIAL.md)
 - [Continuous Assurance Guide](docs/CONTINUOUS_ASSURANCE.md)
 - [v0.3 Methodology Specification](docs/V0.3_METHODOLOGY_SPECIFICATION.md)
@@ -377,6 +386,7 @@ override, redirect boundaries, redaction, escaping, and offline report constrain
 - [v0.7 release notes](docs/releases/v0.7.0.md)
 - [v0.8 release gate](docs/RELEASE_GATE_V0.8.md)
 - [v0.8 release notes](docs/releases/v0.8.0.md)
+- [v0.9 release candidate notes](docs/releases/v0.9.0.md)
 - [v0.6.0 release gate](docs/RELEASE_GATE_V0.6.md)
 - [v0.6.0 release notes](docs/releases/v0.6.0.md)
 - [v0.4.0 release gate](docs/RELEASE_GATE_V0.4.md)
@@ -412,6 +422,7 @@ See [DISCLAIMER.md](DISCLAIMER.md).
   route-level drift assurance.
 - [x] v0.8: verified tag-triggered release of an offline-verifiable, portable
   review-evidence capsule.
+- [ ] v0.9: bounded, local audit-session history and timestamped report exports.
 
 The detailed post-v0.6.1 scope, safety boundaries, and release gates are in the
 [product roadmap](docs/ROADMAP.md).

@@ -53,8 +53,28 @@ export interface WorkspaceDocument {
   disabled_target_ids: string[];
   approved_baseline: BaselineCandidate | null;
   latest_summaries: Record<string, TargetSummary>;
+  audit_history: AuditHistoryEntry[];
   created_at: string;
   updated_at: string;
+}
+
+export interface AuditHistoryEntry {
+  audit_id: string;
+  completed_at: string;
+  run_kind: "target" | "assurance";
+  policy_name: string;
+  outcome: "passed" | "failed" | "operational_error";
+  exit_code: 0 | 1 | 2;
+  assessments: AuditHistoryAssessment[];
+}
+
+export interface AuditHistoryAssessment {
+  target_id: string;
+  target: string;
+  selected_profile: Profile;
+  score: number;
+  outcome: "passed" | "failed" | "operational_error";
+  exit_code: 0 | 1 | 2;
 }
 
 export interface WorkspaceRecord {
@@ -217,5 +237,6 @@ export type ViewName =
   | "targets"
   | "assessment"
   | "assurance"
+  | "history"
   | "evidence"
   | "workspace";

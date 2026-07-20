@@ -7,6 +7,7 @@ import {
   Database,
   Download,
   FileJson,
+  History,
   Info,
   Library,
   LoaderCircle,
@@ -33,6 +34,7 @@ import {
 import { ApiError, WorkspaceApi } from "./api";
 import type {
   AssurancePayload,
+  AuditHistoryEntry,
   BaselineCandidateResponse,
   Bootstrap,
   DetailedFinding,
@@ -79,6 +81,7 @@ const NAVIGATION: {
   { id: "targets", label: "Targets", icon: Target },
   { id: "assessment", label: "Assessment", icon: ClipboardCheck },
   { id: "assurance", label: "Assurance", icon: CircleGauge },
+  { id: "history", label: "History", icon: History },
   { id: "evidence", label: "Evidence", icon: Library },
   { id: "workspace", label: "Workspace", icon: Database },
 ];
@@ -499,6 +502,9 @@ export function App({ sessionToken }: AppProps) {
               void exportCurrentReport(reportFormat)
             }
           />
+        )}
+        {record && view === "history" && (
+          <AuditHistoryView history={record.document.audit_history} />
         )}
         {record && view === "evidence" && (
           <EvidenceView run={run} />
@@ -1180,14 +1186,67 @@ function ReportExportControl({
       <button
         type="button"
         className="icon-button"
-        aria-label="Download current report"
-        title="Download report"
+        aria-label="Download timestamped current report"
+        title="Download timestamped report"
         disabled={disabled}
         onClick={() => onExport(format)}
       >
         <Download aria-hidden="true" />
       </button>
     </div>
+  );
+}
+
+function AuditHistoryView({ history }: { history: AuditHistoryEntry[] }) {
+  return (
+    <section className="single-view" aria-labelledby="history-heading">
+      <div className="page-heading">
+        <div>
+          <h1 id="history-heading">Audit history</h1>
+          <p>Last {history.length} local audit sessions</p>
+        </div>
+      </div>
+      {history.length ? (
+        <div className="audit-history-table-wrap">
+          <table className="audit-history-table">
+            <thead>
+              <tr>
+                <th scope="col">Completed</th>
+                <th scope="col">Scope</th>
+                <th scope="col">Targets</th>
+                <th scope="col">Score</th>
+                <th scope="col">Outcome</th>
+                <th scope="col">Audit ID</th>
+              </tr>
+            </thead>
+            <tbody>
+              {history.map((entry) => (
+                <tr key={entry.audit_id}>
+                  <th scope="row">{displayTimestamp(entry.completed_at)}</th>
+                  <td>{entry.run_kind === "target" ? "Target audit" : "Assurance"}</td>
+                  <td>
+                    {entry.assessments.map((assessment) => (
+                      <span className="history-target" key={assessment.target_id}>
+                        {humanize(assessment.target_id)}
+                      </span>
+                    ))}
+                  </td>
+                  <td>
+                    {entry.assessments.length === 1
+                      ? `${entry.assessments[0].score} / 100`
+                      : "Multiple targets"}
+                  </td>
+                  <td><StatusBadge outcome={entry.outcome} /></td>
+                  <td><code>{entry.audit_id.slice(0, 8)}</code></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      ) : (
+        <EmptyView title="Run an audit to start a local session history" />
+      )}
+    </section>
   );
 }
 
@@ -1338,6 +1397,10 @@ function WorkspaceView({
         <div>
           <dt>Detailed response values</dt>
           <dd>Current run memory and explicit reports only</dd>
+        </div>
+        <div>
+          <dt>Audit session history</dt>
+          <dd>Up to 50 local session summaries</dd>
         </div>
       </dl>
       <div className="workspace-actions-band">
@@ -1808,8 +1871,9 @@ function newWorkspaceDocument(
       targets: [target],
       },
       disabled_target_ids: [],
-      approved_baseline: null,
+    approved_baseline: null,
     latest_summaries: {},
+    audit_history: [],
     created_at: timestamp,
     updated_at: timestamp,
   };
@@ -1917,6 +1981,15 @@ function relativeTime(value?: string): string {
   const hours = Math.round(minutes / 60);
   if (hours < 24) return `${hours}h ago`;
   return `${Math.round(hours / 24)}d ago`;
+}
+
+function displayTimestamp(value: string): string {
+  const timestamp = new Date(value);
+  if (Number.isNaN(timestamp.getTime())) return value;
+  return new Intl.DateTimeFormat(undefined, {
+    dateStyle: "medium",
+    timeStyle: "medium",
+  }).format(timestamp);
 }
 
 function now(): string {

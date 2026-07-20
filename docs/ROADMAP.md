@@ -27,6 +27,7 @@ complete.
 | v0.6.1 | Reproducible release artifacts, SHA-256 manifests, immutable CI action pins, and GitHub artifact provenance attestations. |
 | v0.7 | Approved, data-minimized route baselines for explicit route-manifest drift review, delivered through a verified tag-triggered release. |
 | v0.8 | Offline-verifiable, deterministic portable review evidence capsules, delivered through a verified tag-triggered release. |
+| v0.9 | Bounded, local audit-session history and timestamped report exports. |
 
 The former roadmap is therefore closed:
 
@@ -171,6 +172,46 @@ offline-verifiable SHA-256 manifest.
   privacy-preserving defaults;
 - the product retains a clear advantage over a generic report archive rather
   than merely packaging existing files.
+
+## v0.9 — Workspace Audit History
+
+**Status:** Release candidate; implementation and release evidence in progress.
+
+### Real problem
+
+The workspace previously retained only the latest in-memory detailed run and
+one latest summary per target. A later audit therefore replaced the visible
+current result, while report exports reused the same filename. Reviewers could
+not distinguish local audit sessions or retain successive reports reliably.
+
+### Outcome
+
+Keep the latest 50 completed workspace audit sessions as local, data-minimized
+summaries and give every explicit report export a scope, UTC timestamp, and
+unique audit-ID suffix.
+
+### Guardrails
+
+- Session history records only audit metadata, target/profile identifiers,
+  scores, outcomes, and exit codes; it excludes raw response-header values and
+  full error traces.
+- Detailed evidence stays in the current in-memory run and explicit exported
+  reports. The feature does not create a hidden archive of reports.
+- The history is local-only, bounded, schema-versioned, and migrated
+  deterministically from existing workspace documents.
+- The feature does not change request behavior, scoring, methodology,
+  framework mappings, baseline semantics, or target authorization boundaries.
+
+### Acceptance gate
+
+- deterministic migration and strict schema validation cover history fields,
+  size bound, UUIDs, timestamps, outcomes, and raw-value rejection;
+- consecutive audits create separate records and distinct dated report names;
+- target configuration changes clear only stale current summaries, not history;
+- frontend tests cover the persisted History view and the packaged static
+  workspace assets remain synchronized;
+- full Python, frontend, package, CI, and browser/accessibility gates pass
+  before tagging `v0.9.0`.
 
 ## Work Deliberately Not Scheduled
 

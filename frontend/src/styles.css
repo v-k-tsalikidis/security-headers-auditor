@@ -1046,6 +1046,52 @@ table {
   background: var(--surface);
 }
 
+.audit-history-table-wrap {
+  overflow: auto;
+  border: 1px solid var(--line);
+  border-radius: 5px;
+}
+
+.audit-history-table {
+  width: 100%;
+  min-width: 820px;
+  border-collapse: collapse;
+}
+
+.audit-history-table th,
+.audit-history-table td {
+  padding: 13px;
+  border-bottom: 1px solid var(--line);
+  text-align: left;
+  vertical-align: top;
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.audit-history-table thead th {
+  color: var(--muted);
+  background: var(--surface);
+  font-weight: 650;
+}
+
+.audit-history-table tbody tr:last-child th,
+.audit-history-table tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.history-target {
+  display: block;
+}
+
+.history-target + .history-target {
+  margin-top: 4px;
+}
+
+.audit-history-table code {
+  color: var(--muted);
+  font-size: 11px;
+}
+
 .workspace-metadata {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));

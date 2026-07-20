@@ -13,8 +13,11 @@ operator decision and should be used only when the output is controlled.
 
 Response header values are evidence and can themselves contain identifiers,
 internal hostnames, software details, policy-report endpoints, or session metadata.
-The tool does not persist output unless the operator writes a report. The operator
-is responsible for storage, retention, access control, and redaction before sharing.
+The workspace retains only up to 50 data-minimized session summaries (time,
+scope, target ID, profile, score, and outcome); it never retains raw response
+header values in that history. Detailed output remains in the active run and
+reports the operator explicitly writes. The operator is responsible for storage,
+retention, access control, and redaction before sharing.
 
 This data-minimization posture supports privacy-conscious use. It is not a GDPR
 compliance assessment, legal opinion, or certification.
