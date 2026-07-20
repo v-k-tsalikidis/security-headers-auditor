@@ -2,20 +2,14 @@ import {
   AlertTriangle,
   CheckCircle2,
   ChevronRight,
-  CircleGauge,
   ClipboardCheck,
-  Database,
   Download,
   FileJson,
-  History,
   Info,
-  Library,
   LoaderCircle,
   Play,
   Plus,
   RotateCcw,
-  ShieldCheck,
-  Target,
   Trash2,
   Upload,
   X,
@@ -73,17 +67,13 @@ const EMPTY_TARGET: TargetDraft = {
 
 const MAX_WORKSPACE_IMPORT_BYTES = 2 * 1024 * 1024;
 
-const NAVIGATION: {
-  id: ViewName;
-  label: string;
-  icon: typeof Target;
-}[] = [
-  { id: "targets", label: "Targets", icon: Target },
-  { id: "assessment", label: "Assessment", icon: ClipboardCheck },
-  { id: "assurance", label: "Assurance", icon: CircleGauge },
-  { id: "history", label: "History", icon: History },
-  { id: "evidence", label: "Evidence", icon: Library },
-  { id: "workspace", label: "Workspace", icon: Database },
+const NAVIGATION: { id: ViewName; label: string }[] = [
+  { id: "targets", label: "Targets" },
+  { id: "assessment", label: "Assessment" },
+  { id: "assurance", label: "Assurance" },
+  { id: "history", label: "History" },
+  { id: "evidence", label: "Evidence" },
+  { id: "workspace", label: "Workspace" },
 ];
 
 export function App({ sessionToken }: AppProps) {
@@ -576,15 +566,17 @@ function TopBar({
   return (
     <header className="top-bar">
       <div className="brand">
-        <ShieldCheck aria-hidden="true" />
-        <strong>Security Headers Auditor</strong>
+        <div className="brand-copy">
+          <strong>Security Headers Auditor</strong>
+          <span>by Vasileios Tsalikidis</span>
+        </div>
       </div>
       <div className="workspace-name">
         {record?.document.name ?? "Local workspace"}
       </div>
       <span className="local-status">
         <span aria-hidden="true" />
-        Local only
+        Read-only · local
       </span>
       <div className="top-actions">
         <button type="button" onClick={onImport}>
@@ -613,7 +605,6 @@ function SideNavigation({
   return (
     <nav className="side-navigation" aria-label="Workspace sections">
       {NAVIGATION.map((item) => {
-        const Icon = item.icon;
         return (
           <button
             type="button"
@@ -622,7 +613,6 @@ function SideNavigation({
             aria-current={view === item.id ? "page" : undefined}
             onClick={() => onChange(item.id)}
           >
-            <Icon aria-hidden="true" />
             <span>{item.label}</span>
           </button>
         );
@@ -1665,6 +1655,11 @@ function TargetDialog({
           )}
         </div>
         <form onSubmit={submit}>
+          <p className="dialog-copy authorization-note">
+            Add only a system you own, administer, or are expressly authorized
+            to assess. A run uses a bounded read-only request model; it does
+            not crawl, authenticate, fuzz, or exploit.
+          </p>
           {requireWorkspaceName && (
             <label>
               Workspace name
@@ -1842,7 +1837,6 @@ function FatalState({
 }) {
   return (
     <main className="fatal-state">
-      <ShieldCheck aria-hidden="true" />
       <h1>{title}</h1>
       <p>{message}</p>
     </main>

@@ -16,6 +16,10 @@ Security Headers Auditor is a small, inspectable engineering tool for:
 - analysts who need evidence and reasoning, not only a grade;
 - technical reviewers evaluating practical security judgment.
 
+For the concise public narrative, practical comparison boundary, and visual
+identity, see [Product Positioning](PRODUCT_POSITIONING.md). This brief remains
+the detailed engineering rationale behind that narrative.
+
 ## Distinctive Decisions
 
 - Three explicit response profiles: `app`, `api`, and `brochure`.

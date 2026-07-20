@@ -2,19 +2,19 @@
   font-family:
     Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   color: #202426;
-  background: #f5f7f7;
+  background: #f7f6f2;
   font-synthesis: none;
   text-rendering: optimizeLegibility;
-  --paper: #ffffff;
-  --surface: #f7f8f8;
-  --surface-strong: #eff2f2;
-  --line: #dce2e2;
-  --line-strong: #c7d0d0;
+  --paper: #fffefb;
+  --surface: #f6f5f0;
+  --surface-strong: #ecece5;
+  --line: #d9dad4;
+  --line-strong: #c4c7c0;
   --text: #202426;
   --muted: #667073;
-  --teal: #00656b;
-  --teal-dark: #004d52;
-  --teal-soft: #e8f2f2;
+  --teal: #0d5c63;
+  --teal-dark: #083f45;
+  --teal-soft: #e6f0ee;
   --green: #1c7430;
   --green-soft: #edf7ef;
   --ochre: #9a6200;
@@ -23,7 +23,7 @@
   --rose-soft: #fff0f1;
   --blue: #315d7b;
   --blue-soft: #edf4f8;
-  --shadow: 0 10px 28px rgb(28 40 42 / 10%);
+  --shadow: 0 4px 14px rgb(28 40 42 / 6%);
 }
 
 * {
@@ -114,18 +114,25 @@ a:focus-visible {
 }
 
 .brand {
-  gap: 10px;
+  gap: 11px;
   white-space: nowrap;
 }
 
-.brand svg {
-  width: 29px;
-  height: 29px;
-  color: var(--teal);
+.brand-copy {
+  display: grid;
+  gap: 2px;
+  line-height: 1.1;
 }
 
 .brand strong {
-  font-size: 17px;
+  font-size: 16px;
+  letter-spacing: -0.015em;
+}
+
+.brand-copy span {
+  color: var(--muted);
+  font-size: 10px;
+  letter-spacing: 0.02em;
 }
 
 .workspace-name {
@@ -200,16 +207,16 @@ a:focus-visible {
   position: relative;
   display: flex;
   align-items: center;
-  gap: 10px;
-  min-height: 64px;
-  padding: 0 16px;
+  min-height: 52px;
+  padding: 0 18px;
   border: 0;
   border-bottom: 1px solid transparent;
   background: transparent;
   color: #4a5456;
   cursor: pointer;
   text-align: left;
-  font-size: 13px;
+  font-size: 12px;
+  letter-spacing: 0.015em;
 }
 
 .side-navigation button:hover {
@@ -228,10 +235,6 @@ a:focus-visible {
   inset: 0 auto 0 0;
   width: 3px;
   background: var(--teal);
-}
-
-.side-navigation svg {
-  width: 20px;
 }
 
 .workspace-main {
@@ -1331,8 +1334,7 @@ table {
   background: var(--surface);
 }
 
-.loading-screen svg,
-.fatal-state > svg {
+.loading-screen svg {
   width: 34px;
   color: var(--teal);
 }
@@ -1371,20 +1373,7 @@ table {
     grid-template:
       "top top" 64px
       "nav main" calc(100vh - 64px) /
-      70px minmax(0, 1fr);
-  }
-
-  .side-navigation button {
-    justify-content: center;
-    padding: 0;
-  }
-
-  .side-navigation button span {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    overflow: hidden;
-    clip: rect(0, 0, 0, 0);
+    140px minmax(0, 1fr);
   }
 
   .top-bar {
@@ -1436,26 +1425,17 @@ table {
     grid-area: nav;
     z-index: 30;
     display: grid;
-    grid-template-columns: repeat(5, 1fr);
+    grid-template-columns: repeat(6, 1fr);
     border-top: 1px solid var(--line);
     border-right: 0;
   }
 
   .side-navigation button {
     min-height: 62px;
-    flex-direction: column;
     justify-content: center;
-    gap: 3px;
     padding: 4px;
-    font-size: 10px;
-  }
-
-  .side-navigation button span {
-    position: static;
-    width: auto;
-    height: auto;
-    overflow: visible;
-    clip: auto;
+    font-size: 9px;
+    letter-spacing: 0.01em;
   }
 
   .side-navigation button.active::before {
@@ -1548,10 +1528,6 @@ table {
 }
 
 @media (max-width: 540px) {
-  .brand svg {
-    width: 25px;
-  }
-
   .top-actions {
     gap: 0;
   }

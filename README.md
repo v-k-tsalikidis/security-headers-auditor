@@ -4,12 +4,38 @@
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
 [![Python](https://img.shields.io/badge/python-3.10%2B-3776AB.svg)](pyproject.toml)
 
-Context-aware, read-only Python CLI for reviewing HTTP security headers as an
-authenticated web application, API response, or public brochure site.
+**Security Headers Auditor** is an independent security-engineering project by
+Vasileios Tsalikidis. It is a context-aware, read-only Python tool for reviewing
+HTTP security headers on an application response, API response, or public
+brochure site.
 
 > **Authorized use:** Run this local, low-impact tool only on systems you own,
 > administer, or are explicitly authorized to assess. It does not crawl,
 > authenticate, fuzz, exploit, brute-force, or bypass access controls.
+
+## Why This Instead Of A Generic Header Checker?
+
+Most header checkers answer whether a familiar header is present. This project
+is designed for the engineering question that follows: **is the observed
+response configuration appropriate for this kind of endpoint, and can the
+result be reviewed over time?**
+
+- It evaluates `app`, `api`, and `brochure` responses differently, with a
+  conservative auto-detection record and an explicit operator override.
+- It assesses selected configuration quality, including weak and incomplete
+  values, rather than treating every present header as equally useful.
+- It keeps scored controls, contextual observations, disclosure signals, and
+  framework evidence separate, so a score is not misread as a vulnerability
+  count or compliance decision.
+- It supports policy-as-code, approved baselines, route-level review, compact
+  evidence capsules, and CI outputs for change-control work.
+- It remains local-first and bounded: the operator supplies the targets, the
+  request model is read-only, and stored workspace history is data-minimized.
+
+These are design choices for a narrower, more reviewable assessment—not a
+claim that the tool proves a target secure or replaces application testing. See
+the [product positioning](docs/PRODUCT_POSITIONING.md) and
+[responsible-use boundary](docs/RESPONSIBLE_USE.md).
 
 Security Headers Auditor avoids the universal checklist model. It records why a
 response profile was selected, scores only controls applicable to that profile,

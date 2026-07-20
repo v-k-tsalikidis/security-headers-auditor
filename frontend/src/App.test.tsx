@@ -222,6 +222,9 @@ describe("workspace baseline approval", () => {
 
     render(<App sessionToken="test-token" />);
     await screen.findByRole("heading", { name: "Create workspace" });
+    expect(
+      screen.getByText(/Add only a system you own, administer, or are expressly authorized/i),
+    ).toBeInTheDocument();
     await user.click(screen.getAllByRole("button", { name: "Import" })[0]);
     const input = document.querySelector<HTMLInputElement>('input[type="file"]');
     expect(input).not.toBeNull();
@@ -290,6 +293,7 @@ describe("workspace audit history", () => {
 
     render(<App sessionToken="test-token" />);
     await screen.findByRole("heading", { name: "Targets" });
+    expect(screen.getByText("by Vasileios Tsalikidis")).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "History" }));
 
     await screen.findByRole("heading", { name: "Audit history" });
