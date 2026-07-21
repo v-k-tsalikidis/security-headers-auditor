@@ -129,6 +129,11 @@ a:focus-visible {
   letter-spacing: -0.015em;
 }
 
+.brand strong span {
+  color: var(--teal);
+  font-weight: 700;
+}
+
 .brand-copy span {
   color: var(--muted);
   font-size: 10px;

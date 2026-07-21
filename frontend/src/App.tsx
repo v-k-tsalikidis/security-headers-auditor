@@ -567,8 +567,10 @@ function TopBar({
     <header className="top-bar">
       <div className="brand">
         <div className="brand-copy">
-          <strong>Security Headers Auditor</strong>
-          <span>by Vasileios Tsalikidis</span>
+          <strong>
+            Response <span>Ledger</span>
+          </strong>
+          <span>Security Headers Auditor · Vasileios Tsalikidis</span>
         </div>
       </div>
       <div className="workspace-name">

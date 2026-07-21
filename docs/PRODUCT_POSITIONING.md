@@ -2,12 +2,21 @@
 
 ## Identity
 
-**Security Headers Auditor**
-Independent security-engineering project by **Vasileios Tsalikidis**
+**Response Ledger**
+
+Security Headers Auditor · Independent security-engineering project by
+**Vasileios Tsalikidis**
 
 **Positioning statement:** A local-first, context-aware HTTP response-header
 assessment tool for engineers who need a reviewable configuration decision—not
 just a generic grade.
+
+**Tagline:** *Response context. Reviewable evidence.*
+
+Response Ledger is the public product identity. The repository, Python package,
+and command-line interface continue to use **Security Headers Auditor** and
+`security-headers-auditor`; this preserves technical continuity and published
+release evidence.
 
 The product intentionally looks and behaves like an engineering instrument:
 quiet, precise, inspectable, and conservative about what it claims.
@@ -25,7 +34,7 @@ quiet, precise, inspectable, and conservative about what it claims.
 
 ## Why A Team Might Choose It
 
-Choose Security Headers Auditor when the goal is to make a defensible,
+Choose Response Ledger when the goal is to make a defensible,
 repeatable decision about a known response configuration: before a release,
 after a CDN or framework change, during a configuration review, or in CI.
 
@@ -60,15 +69,20 @@ editorial hierarchy, not from a visual cliché.
 | Typography | System sans-serif for reading; tabular/system mono only for identifiers and evidence values |
 | Layout | Editorial spacing, fine borders, no gradients, glow, dark cyber backgrounds, decorative icon fields, or visual noise |
 
-## Future Naming Explorations
+## Identity Use
 
-The present product name remains **Security Headers Auditor**. These are
-possible future identity directions, not package names, domains, trademarks, or
-publication claims:
+The primary mark is the typographic **Response Ledger** wordmark. “Response” is
+graphite and “Ledger” is deep teal, paired with a restrained copper rule. The
+mark represents a recorded, reviewable response configuration rather than a
+generic security symbol.
 
-1. **Header Ledger** — emphasizes evidence and review history.
-2. **Response Index** — emphasizes context-aware response assessment.
-3. **Scope Header** — emphasizes bounded, explicitly authorized operation.
+Use **Response Ledger / Security Headers Auditor** when both the public
+identity and the technical implementation need to be clear. Use the full
+technical name for installation, package metadata, CLI commands, schemas,
+versioning, and release evidence.
 
-Any future public rename needs separate trademark, domain, and community review
-before it is adopted.
+The identity should always be accompanied by evidence-backed language. It can
+say *local-first*, *read-only*, *context-aware*, and *reviewable* because those
+behaviours are implemented and tested. It must not imply certification, complete
+browser-policy validation, continuous target monitoring, or proof that an
+endpoint is secure.

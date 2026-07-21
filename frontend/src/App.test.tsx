@@ -293,7 +293,9 @@ describe("workspace audit history", () => {
 
     render(<App sessionToken="test-token" />);
     await screen.findByRole("heading", { name: "Targets" });
-    expect(screen.getByText("by Vasileios Tsalikidis")).toBeInTheDocument();
+    expect(screen.getByText("Security Headers Auditor · Vasileios Tsalikidis")).toBeInTheDocument();
+    expect(screen.getByText("Response")).toBeInTheDocument();
+    expect(screen.getByText("Ledger")).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "History" }));
 
     await screen.findByRole("heading", { name: "Audit history" });

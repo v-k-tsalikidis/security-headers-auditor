@@ -1,4 +1,13 @@
-# Controlled Workspace Screenshots
+# Product Images
+
+## Response Ledger Wordmark
+
+`response-ledger-wordmark.png` is the primary visual wordmark for Response
+Ledger, the public identity of Security Headers Auditor. It is a typographic
+identity asset, not an assessment result, certification badge, or security
+claim.
+
+## Controlled Workspace Screenshots
 
 These screenshots use deterministic loopback-only fixtures from the automated
 test suite. They contain no customer systems, credentials, or public scanning

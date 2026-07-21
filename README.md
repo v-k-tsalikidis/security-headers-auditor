@@ -1,13 +1,25 @@
-# Security Headers Auditor
+# Response Ledger
+
+### Security Headers Auditor
+
+<p align="center">
+  <img src="docs/images/response-ledger-wordmark.png" alt="Response Ledger wordmark" width="620" />
+</p>
 
 [![CI](https://github.com/v-k-tsalikidis/security-headers-auditor/actions/workflows/ci.yml/badge.svg)](https://github.com/v-k-tsalikidis/security-headers-auditor/actions/workflows/ci.yml)
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
 [![Python](https://img.shields.io/badge/python-3.10%2B-3776AB.svg)](pyproject.toml)
 
-**Security Headers Auditor** is an independent security-engineering project by
-Vasileios Tsalikidis. It is a context-aware, read-only Python tool for reviewing
-HTTP security headers on an application response, API response, or public
-brochure site.
+**Response Ledger** is the public identity of **Security Headers Auditor**, an
+independent security-engineering project by Vasileios Tsalikidis. It is a
+context-aware, read-only Python tool for reviewing HTTP security headers on an
+application response, API response, or public brochure site.
+
+> **Response context. Reviewable evidence.**
+
+The identity does not rename the Python package, command-line interface, or
+repository. Those remain `security-headers-auditor` so existing use and release
+evidence stay stable.
 
 > **Authorized use:** Run this local, low-impact tool only on systems you own,
 > administer, or are explicitly authorized to assess. It does not crawl,
