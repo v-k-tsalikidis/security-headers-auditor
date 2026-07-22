@@ -2,7 +2,7 @@
 
 **Status:** Active planning document
 **Reviewed:** 2026-07-20
-**Current stable release:** v0.8.0
+**Current stable release:** v0.9.0
 
 ## Direction
 
@@ -175,7 +175,7 @@ offline-verifiable SHA-256 manifest.
 
 ## v0.9 — Workspace Audit History
 
-**Status:** Release candidate; implementation and release evidence in progress.
+**Status:** Stable v0.9.0; implementation and release evidence complete.
 
 ### Real problem
 

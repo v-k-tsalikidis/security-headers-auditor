@@ -460,7 +460,8 @@ See [DISCLAIMER.md](DISCLAIMER.md).
   route-level drift assurance.
 - [x] v0.8: verified tag-triggered release of an offline-verifiable, portable
   review-evidence capsule.
-- [ ] v0.9: bounded, local audit-session history and timestamped report exports.
+- [x] v0.9: verified release of bounded, local audit-session history and
+  timestamped report exports.
 
 The detailed post-v0.6.1 scope, safety boundaries, and release gates are in the
 [product roadmap](docs/ROADMAP.md).
